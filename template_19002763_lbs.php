@@ -74,7 +74,7 @@ Changelog:
 v1.00  xx.xx.2026 NG initial release
 v1.01  25.05.2026 NG MQTT Discovery + mini Jinja2 Template-Parser
 v1.02  31.05.2026 Wert-Mapping-Editor im Admin (⇄-Button pro Channel) — valueMapIn/valueMapOut direkt im Browser bearbeiten, beliebig viele Einträge, persistent in DB
-v1.03  31.05.2026 Topic-Scanner startet nicht mehr automatisch nach Absturz/Neustart (scanUntil beim Start geleert); permanente homeassistant/# und tasmota/discovery/# Subscriptions entfernt
+v1.03  31.05.2026 Topic-Scanner startet nicht mehr automatisch nach Absturz/Neustart (scanUntil beim Start geleert); permanente homeassistant/# und tasmota/discovery/# Subscriptions entfernt; DB nach Startup geschlossen (kein permanentes Polling); loop-Timeout 0.5→1.0s; Shutdown-Function-Fix: $execDone-Flag verhindert logic_setVar nach sql_disconnect
 */
 
 function LB_LBSID_debug($debugLevel, $thisTxtDbgLevel, $str) {
@@ -172,10 +172,11 @@ include_once $MQTT_LIB;
 sql_connect();
 set_time_limit(0);
 
-// Sicherstellen dass V[1] auch bei unerwartetem Abbruch zurückgesetzt wird,
-// damit der LBS-Block EXEC nicht als "laufend" betrachtet.
-register_shutdown_function(function() use ($id) {
-    logic_setVar($id, 1, 0);
+// Sicherstellen dass V[1] auch bei unerwartetem Abbruch zurückgesetzt wird.
+// Flag verhindert Doppelaufruf nach normalem Exit (sql_disconnect wäre bereits geschlossen).
+$execDone = false;
+register_shutdown_function(function() use ($id, &$execDone) {
+    if (!$execDone) logic_setVar($id, 1, 0);
 });
 
 $E = logic_getInputs($id);
@@ -354,6 +355,7 @@ do {
 } while (!$stop && getSysInfo(1) >= 1);
 
 exec_debug(1, "LBS gestoppt.");
+$execDone = true;
 logic_setVar($id, 1, 0);
 sql_disconnect();
 ?>
