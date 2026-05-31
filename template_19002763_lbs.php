@@ -1,5 +1,5 @@
 ###[DEF]###
-[name           = MQTT Connector v1.02 ]
+[name           = MQTT Connector v1.03 ]
 
 [e#1 trigger    = (Re)Start/Stopp ]
 [e#2 important  = Broker-Host (leer oder localhost = lokal)#init=localhost ]
@@ -23,12 +23,9 @@ Geräte und Channels werden per JSON-Import oder über MQTT Discovery im Admin a
 Jeder Channel definiert ein Subscribe-Topic (MQTT → Edomi KO) und/oder ein
 Publish-Topic (Edomi KO → Broker).
 
-MQTT Discovery: Der LBS subscribed automatisch auf:
-  homeassistant/#         — Home-Assistant-Format (Zigbee2MQTT, Shelly, ESPHome)
-  tasmota/discovery/#     — Tasmota-eigenes Discovery-Format
-
-Tasmota meldet sich standardmäßig auf tasmota/discovery/# (kein SetOption erforderlich).
-Optional: Im Tasmota-Konsole <b>SetOption19 1</b> eingeben, um zusätzlich auf homeassistant/# zu publishen.
+MQTT Discovery: Über den Admin-Button "Topic-Scanner" werden alle Topics im Netz
+aufgezeichnet (inkl. homeassistant/# und tasmota/discovery/#). Geräte können
+anschließend direkt aus der Scan-Liste importiert werden.
 
 Der Baustein darf nur einmal im Projekt verwendet werden!
 
@@ -77,8 +74,7 @@ Changelog:
 v1.00  xx.xx.2026 NG initial release
 v1.01  25.05.2026 NG MQTT Discovery + mini Jinja2 Template-Parser
 v1.02  31.05.2026 Wert-Mapping-Editor im Admin (⇄-Button pro Channel) — valueMapIn/valueMapOut direkt im Browser bearbeiten, beliebig viele Einträge, persistent in DB
-                  valueMapIn in JSON vordefinierbar (Beispiel: WLED Status online→1 / offline→0)
-		  WLED.json um Status-Channel erweitert (wled/xx/status)
+v1.03  31.05.2026 Topic-Scanner startet nicht mehr automatisch nach Absturz/Neustart (scanUntil beim Start geleert); permanente homeassistant/# und tasmota/discovery/# Subscriptions entfernt
 */
 
 function LB_LBSID_debug($debugLevel, $thisTxtDbgLevel, $str) {
@@ -210,32 +206,6 @@ function mqtt_writeGA($koID, $val, &$cache) {
     writeGA($koID, $val);
 }
 
-// ── Discovery-Helper ──────────────────────────────────────────────────────────
-
-function mqtt_storeDiscovered($dbMqtt, string $topic, string $payload): void {
-    $topicEsc = mysqli_real_escape_string($dbMqtt, $topic);
-    if ($payload === '') {
-        mysqli_query($dbMqtt, "DELETE FROM edomiProject.mqttDiscovered WHERE discoveryTopic='$topicEsc'");
-        return;
-    }
-    $parts = explode('/', $topic);
-    if (strncmp($topic, 'tasmota/discovery/', 18) === 0) {
-        // parts: [tasmota, discovery, <MAC>, config|sensors]
-        $suffix = isset($parts[3]) ? $parts[3] : 'device';
-        $comp   = 'tasmota_' . $suffix;
-    } else {
-        // HA: [homeassistant, <component>, <id>, config]
-        $comp = isset($parts[1]) ? $parts[1] : '';
-    }
-    $compEsc = mysqli_real_escape_string($dbMqtt, $comp);
-    $payEsc  = mysqli_real_escape_string($dbMqtt, $payload);
-    mysqli_query($dbMqtt,
-        "INSERT INTO edomiProject.mqttDiscovered (discoveryTopic,component,payload,seen_at)
-         VALUES ('$topicEsc','$compEsc','$payEsc',NOW())
-         ON DUPLICATE KEY UPDATE component='$compEsc', payload='$payEsc', seen_at=NOW()"
-    );
-}
-
 // ── DB: Channels laden ────────────────────────────────────────────────────────
 
 $dbMqtt = mysqli_connect("localhost", "root", "", "");
@@ -306,17 +276,16 @@ if (empty($channels)) {
     exec_debug(1, "Keine Channels konfiguriert. Admin aufrufen: JSON importieren oder Discovery nutzen.");
 }
 
+// ── DB schließen — nicht mehr benötigt im Betrieb ────────────────────────────
+mysqli_close($dbMqtt);
+unset($dbMqtt);
+
 // ── Verbindungsschleife ───────────────────────────────────────────────────────
 
-$gaCache     = [];
-$clientId    = 'edomi_mqtt_' . $lbsID . '_' . substr(md5(uniqid()), 0, 8);
-$stop        = false;
-$scanActive  = false;
-$scanCheckAt = 0;
-
-$allTopics = array_keys($byTopic);
-$allTopics[] = 'homeassistant/#';
-$allTopics[] = 'tasmota/discovery/#';
+$gaCache      = [];
+$clientId     = 'edomi_mqtt_' . $lbsID . '_' . substr(md5(uniqid()), 0, 8);
+$stop         = false;
+$deviceTopics = array_keys($byTopic);
 
 exec_debug(1, "Verbinde zu $brokerHost:$brokerPort (Client-ID: $clientId)");
 
@@ -326,38 +295,20 @@ do {
     try {
         $mqtt->connect();
         exec_debug(1, "MQTT verbunden.");
-        $mqtt->subscribe($allTopics);
-        exec_debug(1, "Subscribed: " . count($byTopic) . " Device-Topics + homeassistant/# + tasmota/discovery/#");
+        if (!empty($deviceTopics)) $mqtt->subscribe($deviceTopics);
+        exec_debug(1, "Subscribed: " . count($deviceTopics) . " Device-Topics");
 
         // Innere Loop ebenfalls im try — writePacket() kann bei Verbindungsabbruch werfen
         do {
-            $mqtt->loop(function($topic, $payload) use (&$gaCache, $byTopic, $channels, $dbMqtt, &$scanActive) {
-                if ($scanActive) {
-                    $tEsc = mysqli_real_escape_string($dbMqtt, $topic);
-                    $pEsc = mysqli_real_escape_string($dbMqtt, mb_substr($payload, 0, 2048));
-                    mysqli_query($dbMqtt,
-                        "INSERT INTO edomiProject.mqttTopicScan (topic, payload, seen_at)
-                         VALUES ('$tEsc', '$pEsc', NOW())
-                         ON DUPLICATE KEY UPDATE payload='$pEsc', seen_at=NOW()");
-                }
-                if (strncmp($topic, 'homeassistant/', 14) === 0 && substr($topic, -7) === '/config') {
-                    mqtt_storeDiscovered($dbMqtt, $topic, $payload);
-                    return;
-                }
-                if (strncmp($topic, 'tasmota/discovery/', 18) === 0) {
-                    mqtt_storeDiscovered($dbMqtt, $topic, $payload);
-                    return;
-                }
+            $mqtt->loop(function($topic, $payload) use (&$gaCache, $byTopic, $channels) {
                 if (!isset($byTopic[$topic])) return;
                 foreach ($byTopic[$topic] as $cid) {
                     $ch  = $channels[$cid];
                     $val = mqtt_applyReceive($payload, $ch);
                     exec_debug(2, "RX [$topic] '$payload' → KO " . $ch['koIDsub'] . " = '$val'");
                     mqtt_writeGA($ch['koIDsub'], $val, $gaCache);
-                    $vEsc = mysqli_real_escape_string($dbMqtt, $val);
-                    mysqli_query($dbMqtt, "UPDATE edomiProject.mqttChannel SET lastValue='$vEsc', lastSeen=NOW() WHERE id=$cid");
                 }
-            }, 0.5);
+            }, 1.0);
 
             if ($qE = logic_getInputsQueued($id)) {
                 if (isset($hasWrapper)) $qE = W_logic_getInputsQueued($id);
@@ -375,25 +326,6 @@ do {
                     $payload = mqtt_applySend($rawVal, $ch);
                     exec_debug(1, "TX [" . $ch['publishTopic'] . "] = '$payload' (KO " . $ch['koIDpub'] . ")");
                     $mqtt->publish($ch['publishTopic'], $payload);
-                }
-            }
-
-            // Topic-Scanner-Status alle 5s prüfen
-            $now = time();
-            if ($now >= $scanCheckAt) {
-                $scanCheckAt = $now + 5;
-                $sRow = mysqli_fetch_assoc(mysqli_query($dbMqtt,
-                    "SELECT scanUntil FROM edomiProject.mqttBroker WHERE id=1 LIMIT 1"));
-                $scanUntilTs = ($sRow && $sRow['scanUntil']) ? strtotime($sRow['scanUntil']) : 0;
-                if (!$scanActive && $scanUntilTs > $now) {
-                    $scanActive = true;
-                    $mqtt->subscribe(['#']);
-                    exec_debug(1, "Topic-Scanner gestartet.");
-                } elseif ($scanActive && $scanUntilTs <= $now) {
-                    $scanActive = false;
-                    mysqli_query($dbMqtt, "UPDATE edomiProject.mqttBroker SET scanUntil=NULL WHERE id=1");
-                    exec_debug(1, "Topic-Scanner beendet. Reconnect...");
-                    break;
                 }
             }
 
