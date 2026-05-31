@@ -48,61 +48,21 @@ E8 : Admin-Interface aktivieren (1) oder deaktivieren (0)
 E9 : Debug-Level: 0=Kritisch, 1=Info, 2=Verbose
 
 <h2>JSON-Format (Gerätedefinition)</h2>
-<pre>
-{
-  "device": "WLED Wohnzimmer",
-  "channels": [
-    {
-      "name": "Power",
-      "subscribeTopic": "wled/wohnzimmer",
-      "publishTopic":   "wled/wohnzimmer",
-      "dataType": "int",
-      "valueMapIn":  {"on": 1, "off": 0},
-      "valueMapOut": {"1": "on", "0": "off"},
-      "direction": "both"
-    },
-    {
-      "name": "Helligkeit",
-      "subscribeTopic": "wled/wohnzimmer/g",
-      "publishTopic":   "wled/wohnzimmer/api",
-      "dataType": "int",
-      "valueTemplate":   "{{ value | float * 0.392 | round | int }}",
-      "commandTemplate": "{\"bri\":{{ value | float * 2.55 | round | int }}}",
-      "direction": "both"
-    },
-    {
-      "name": "Temperatur (Zigbee2MQTT)",
-      "subscribeTopic": "zigbee2mqtt/sensor_kueche",
-      "dataType": "float",
-      "valueTemplate": "{{ value_json.temperature | round(1) }}",
-      "direction": "subscribe"
-    }
-  ]
-}
-</pre>
+Vollständige Dokumentation mit Beispielen (WLED, Zigbee2MQTT, Shelly u.a.):<br>
+<b><a href="https://github.com/sipiyou/edomi-mqtt-connector/blob/main/git/JSON-Format.md" target="_blank">https://github.com/sipiyou/edomi-mqtt-connector</a></b>
 
-<b>Channel-Felder:</b>
-  name             : Anzeigename im Admin
-  subscribeTopic   : MQTT-Topic auf das subscribed wird (leer = nur publish)
-  publishTopic     : MQTT-Topic auf das publiziert wird (leer = nur subscribe)
-  dataType         : string | int | float | bool
-  valueTemplate    : Jinja2-Ausdruck für empfangene Werte
-                     {{ value }}                        = Rohwert
-                     {{ value | float / 10 }}           = Dividieren
-                     {{ value | float * 2.55 | round }} = Multiplizieren + Runden
-                     {{ value_json.temperature }}        = JSON-Feld extrahieren
-                     {{ value_json.temp | round(1) }}    = Feld + Runden
-                     {{ value_xml.ac }}                  = XML-Tag extrahieren (z.B. &lt;ac&gt;200&lt;/ac&gt;)
-                     {{ value_xml.fx | int }}            = XML-Tag + Cast
-  commandTemplate  : Jinja2-Ausdruck für gesendete Werte
-                     {{ value }}                = Rohwert
-                     {"bri":{{ value | int }}} = JSON-Payload mit Wert einbetten
-  valueMapIn       : JSON-Objekt: Rohwert → KO-Wert (nach valueTemplate)
-                     (z.B. {"on":1,"off":0})
-  valueMapOut      : JSON-Objekt: KO-Wert → Rohwert (vor commandTemplate)
-                     (z.B. {"1":"on","0":"off"})
+<b>Kurzreferenz Channel-Felder:</b>
+  name             : Anzeigename (Schlüssel beim Re-Import — nicht umbenennen)
+  subscribeTopic   : MQTT → KO  (leer = nur publish)
+  publishTopic     : KO → MQTT  (leer = nur subscribe)
   direction        : both | subscribe | publish
-  note             : Freitext-Hinweis (wird im Admin unter dem Channel-Namen angezeigt)
+  dataType         : string | int | float | bool
+  valueTemplate    : Jinja2: {{ value }}, {{ value | float * 0.1 | round(1) }},
+                             {{ value_json.feld }}, {{ value_xml.tag }}
+  commandTemplate  : Jinja2: {{ value }}, {"key":{{ value | int }}}
+  valueMapIn       : {"on":1,"off":0}  — MQTT-Wert → KO-Wert
+  valueMapOut      : {"1":"on","0":"off"}  — KO-Wert → MQTT-Wert
+  note             : Freitext-Hinweis (im Admin angezeigt)
 
 <h2>Disclaimer</h2>
 <b>__INSERT_DISCLAIMER__</b>
