@@ -1,0 +1,57 @@
+{
+  "device": "WLED/xx",
+  "note": "Gerätename und Topic-Prefix anpassen. Topic = WLED-MQTT-Name (Config → Sync → MQTT → Topic).",
+  "channels": [
+    {
+      "name": "Status",
+      "subscribeTopic": "wled/xx/status",
+      "dataType": "int",
+      "valueMapIn": {"online": 1, "offline": 0},
+      "direction": "subscribe"
+    },
+    {
+      "name": "Power",
+      "subscribeTopic": "wled/xx",
+      "publishTopic":   "wled/xx",
+      "dataType": "int",
+      "valueMapIn":  {"on": 1, "off": 0},
+      "valueMapOut": {"1": "on", "0": "off"},
+      "direction": "both"
+    },
+    {
+      "name": "Helligkeit",
+      "subscribeTopic": "wled/xx/g",
+      "publishTopic":   "wled/xx/api",
+      "dataType": "int",
+      "valueTemplate":   "{{ value | float * 0.392 | round | int }}",
+      "commandTemplate": "{\"bri\":{{ value | float * 2.55 | round | int }}}",
+      "direction": "both"
+    },
+    {
+      "name": "Farbe",
+      "note": "Farbwert als RRGGBB Hex-String ohne # (z.B. FF0000 = Rot, 00FF00 = Grün, 0000FF = Blau)",
+      "subscribeTopic": "wled/xx/c",
+      "publishTopic":   "wled/xx/col",
+      "dataType": "string",
+      "direction": "both"
+    },
+    {
+      "name": "Preset",
+      "subscribeTopic": "wled/xx/v",
+      "publishTopic":   "wled/xx/api",
+      "dataType": "int",
+      "valueTemplate":   "{{ value_xml.ps | int }}",
+      "commandTemplate": "{\"ps\":{{ value | int }}}",
+      "direction": "both"
+    },
+    {
+      "name": "Effekt",
+      "subscribeTopic": "wled/xx/v",
+      "publishTopic":   "wled/xx/api",
+      "dataType": "int",
+      "valueTemplate":   "{{ value_xml.fx | int }}",
+      "commandTemplate": "{\"seg\":[{\"fx\":{{ value | int }}}]}",
+      "direction": "both"
+    }
+  ]
+}
