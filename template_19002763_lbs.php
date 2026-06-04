@@ -1,5 +1,5 @@
 ###[DEF]###
-[name           = MQTT Connector v1.03 ]
+[name           = MQTT Connector v1.04 ]
 
 [e#1 trigger    = (Re)Start/Stopp ]
 [e#2 important  = Broker-Host (leer oder localhost = lokal)#init=localhost ]
@@ -75,6 +75,7 @@ v1.00  xx.xx.2026 NG initial release
 v1.01  25.05.2026 NG MQTT Discovery + mini Jinja2 Template-Parser
 v1.02  31.05.2026 Wert-Mapping-Editor im Admin (⇄-Button pro Channel) — valueMapIn/valueMapOut direkt im Browser bearbeiten, beliebig viele Einträge, persistent in DB
 v1.03  31.05.2026 Topic-Scanner startet nicht mehr automatisch nach Absturz/Neustart (scanUntil beim Start geleert); permanente homeassistant/# und tasmota/discovery/# Subscriptions entfernt; DB nach Startup geschlossen (kein permanentes Polling); loop-Timeout 0.5→1.0s; Shutdown-Function-Fix: $execDone-Flag verhindert logic_setVar nach sql_disconnect
+v1.04  04.06.2026 Bugfix: value_json.feld.unterfeld (verschachtelte JSON-Pfade, z.B. ENERGY.Power) hat Array statt Wert zurückgegeben; Tasmota-JSON: Relais-Channel mit POWER (ohne Nummer) für Einzelrelais ergänzt
 */
 
 function LB_LBSID_debug($debugLevel, $thisTxtDbgLevel, $str) {

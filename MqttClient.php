@@ -376,9 +376,18 @@ function mqtt_evalExpr(string $expr, string $raw): string {
         $decoded = json_decode($raw, true);
         $val  = (is_array($decoded) && isset($decoded[$m[1]])) ? (string)$decoded[$m[1]] : '';
         $rest = $m[2];
-    } elseif (preg_match('/^value_json\.(\w+)(.*)$/s', $expr, $m)) {
+    } elseif (preg_match('/^value_json\.(\w+(?:\.\w+)*)(.*)$/s', $expr, $m)) {
         $decoded = json_decode($raw, true);
-        $val  = (is_array($decoded) && isset($decoded[$m[1]])) ? (string)$decoded[$m[1]] : '';
+        $cur = $decoded;
+        foreach (explode('.', $m[1]) as $key) {
+            if (is_array($cur) && isset($cur[$key])) {
+                $cur = $cur[$key];
+            } else {
+                $cur = '';
+                break;
+            }
+        }
+        $val  = is_array($cur) ? '' : (string)$cur;
         $rest = $m[2];
     } elseif (preg_match('/^value_xml\.(\w+)(.*)$/s', $expr, $m)) {
         $tag  = preg_quote($m[1], '/');

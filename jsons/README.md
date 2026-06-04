@@ -117,12 +117,13 @@ Mini Jinja2-Parser. Ausdrücke werden in `{{ }}` eingebettet.
 
 ### Variablen
 
-| Variable              | Beschreibung |
-|-----------------------|--------------|
-| `value`               | Rohwert des MQTT-Payloads (string) |
-| `value_json.feld`     | JSON-Feld aus dem Payload extrahieren |
-| `value_json['feld']`  | Alternativschreibweise für JSON-Extraktion |
-| `value_xml.tag`       | XML-Tag-Inhalt aus dem Payload extrahieren (`<tag>inhalt</tag>`) |
+| Variable                    | Beschreibung |
+|-----------------------------|--------------|
+| `value`                     | Rohwert des MQTT-Payloads (string) |
+| `value_json.feld`           | JSON-Feld aus dem Payload extrahieren |
+| `value_json.feld.unterfeld` | Verschachteltes JSON-Feld (beliebig tief, Punkt-Notation) |
+| `value_json['feld']`        | Alternativschreibweise für JSON-Extraktion (eine Ebene) |
+| `value_xml.tag`             | XML-Tag-Inhalt aus dem Payload extrahieren (`<tag>inhalt</tag>`) |
 
 ### Filter (mit `|` verkettbar)
 
@@ -159,6 +160,12 @@ Mini Jinja2-Parser. Ausdrücke werden in `{{ }}` eingebettet.
 
 {{ value_json.temperature | round(1) }}
     → JSON-Feld runden
+
+{{ value_json.ENERGY.Power | int }}
+    → Verschachteltes Feld (z.B. Tasmota ENERGY-Block)
+
+{{ value_json.DHT22.Temperature | round(1) }}
+    → Verschachtelter Sensor-Wert (z.B. Tasmota DHT22)
 
 {{ value_xml.ac }}
     → Tag <ac> aus XML-Payload extrahieren (z.B. WLED /v Topic)
