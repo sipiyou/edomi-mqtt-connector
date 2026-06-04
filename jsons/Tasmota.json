@@ -1,0 +1,160 @@
+{
+  "device": "Tasmota/xx",
+  "note": "Topic-Prefix anpassen: xx = Tasmota-Gerätename (Tasmota → Configuration → MQTT → Topic). Nicht benötigte Channels nach dem Import löschen. Einzelrelais: nur 'Relais' behalten, Kanal 1-4 löschen. Mehrkanal: 'Relais' löschen, Kanal 1-4 verwenden.",
+  "channels": [
+
+    {
+      "name": "Status",
+      "note": "LWT: online wenn Gerät verbunden, offline bei Verbindungsabbruch",
+      "subscribeTopic": "tele/xx/LWT",
+      "dataType": "int",
+      "valueMapIn": {"Online": 1, "Offline": 0},
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Relais",
+      "note": "Für Einzelrelais-Geräte (Sonoff Basic, S31 u.ä.). Für Mehrkanal-Geräte diesen Channel löschen und Kanal 1-4 verwenden.",
+      "subscribeTopic": "stat/xx/POWER",
+      "publishTopic":   "cmnd/xx/POWER",
+      "dataType": "int",
+      "valueMapIn":  {"ON": 1, "OFF": 0},
+      "valueMapOut": {"1": "ON", "0": "OFF"},
+      "direction": "both"
+    },
+
+    {
+      "name": "Kanal 1",
+      "note": "Für Mehrkanal-Geräte (4CH, POW Dual u.ä.). Für Einzelrelais diesen Channel löschen und 'Relais' verwenden.",
+      "subscribeTopic": "stat/xx/POWER1",
+      "publishTopic":   "cmnd/xx/POWER1",
+      "dataType": "int",
+      "valueMapIn":  {"ON": 1, "OFF": 0},
+      "valueMapOut": {"1": "ON", "0": "OFF"},
+      "direction": "both"
+    },
+
+    {
+      "name": "Kanal 2",
+      "subscribeTopic": "stat/xx/POWER2",
+      "publishTopic":   "cmnd/xx/POWER2",
+      "dataType": "int",
+      "valueMapIn":  {"ON": 1, "OFF": 0},
+      "valueMapOut": {"1": "ON", "0": "OFF"},
+      "direction": "both"
+    },
+
+    {
+      "name": "Kanal 3",
+      "subscribeTopic": "stat/xx/POWER3",
+      "publishTopic":   "cmnd/xx/POWER3",
+      "dataType": "int",
+      "valueMapIn":  {"ON": 1, "OFF": 0},
+      "valueMapOut": {"1": "ON", "0": "OFF"},
+      "direction": "both"
+    },
+
+    {
+      "name": "Kanal 4",
+      "subscribeTopic": "stat/xx/POWER4",
+      "publishTopic":   "cmnd/xx/POWER4",
+      "dataType": "int",
+      "valueMapIn":  {"ON": 1, "OFF": 0},
+      "valueMapOut": {"1": "ON", "0": "OFF"},
+      "direction": "both"
+    },
+
+    {
+      "name": "Schalter 1",
+      "note": "Physikalischer Eingangsschalter (kein Relais). Nur lesen.",
+      "subscribeTopic": "tele/xx/STATE",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.Switch1 | lower }}",
+      "valueMapIn": {"on": 1, "off": 0},
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Schalter 2",
+      "note": "Physikalischer Eingangsschalter (kein Relais). Nur lesen.",
+      "subscribeTopic": "tele/xx/STATE",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.Switch2 | lower }}",
+      "valueMapIn": {"on": 1, "off": 0},
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Temperatur",
+      "note": "Sensor-Key ggf. anpassen: DHT22 → DS18B20, SHT30 o.ä. (tele/xx/SENSOR prüfen)",
+      "subscribeTopic": "tele/xx/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.DHT22.Temperature | round(1) }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Luftfeuchtigkeit",
+      "note": "Sensor-Key ggf. anpassen (s. Temperatur)",
+      "subscribeTopic": "tele/xx/SENSOR",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.DHT22.Humidity | round | int }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Temperatur (Analog)",
+      "note": "NTC-Thermistor am Analogeingang. Nur für Geräte mit ANALOG-Sensor.",
+      "subscribeTopic": "tele/xx/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.ANALOG.Temperature | round(1) }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Leistung",
+      "note": "Nur für Geräte mit Energiemessung (z.B. Sonoff POW, PZEM). Einheit: Watt",
+      "subscribeTopic": "tele/xx/SENSOR",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.ENERGY.Power | int }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Spannung",
+      "note": "Nur für Geräte mit Energiemessung. Einheit: Volt",
+      "subscribeTopic": "tele/xx/SENSOR",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.ENERGY.Voltage | int }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Strom",
+      "note": "Nur für Geräte mit Energiemessung. Einheit: Ampere",
+      "subscribeTopic": "tele/xx/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.ENERGY.Current | round(3) }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Energie heute",
+      "note": "Nur für Geräte mit Energiemessung. Tagesverbrauch in kWh",
+      "subscribeTopic": "tele/xx/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.ENERGY.Today | round(3) }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Energie gesamt",
+      "note": "Nur für Geräte mit Energiemessung. Gesamtverbrauch in kWh",
+      "subscribeTopic": "tele/xx/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.ENERGY.Total | round(3) }}",
+      "direction": "subscribe"
+    }
+
+  ]
+}
