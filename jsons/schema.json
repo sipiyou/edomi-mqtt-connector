@@ -14,6 +14,10 @@
       "type": "string",
       "description": "Optionaler Hinweistext (wird vom LBS ignoriert)"
     },
+    "note": {
+      "type": "string",
+      "description": "Optionaler Hinweistext (wird im Admin angezeigt)"
+    },
     "channels": {
       "type": "array",
       "minItems": 1,

@@ -2,6 +2,30 @@
 
 Dieses Dokument beschreibt das JSON-Format zur Definition von MQTT-Geräten für den Edomi MQTT Connector LBS (19002763).
 
+## Dateien in diesem Ordner
+
+| Datei | Beschreibung |
+|-------|--------------|
+| `schema.json` | Formales JSON-Schema (Draft-07) zur Validierung und VSCode Auto-Vervollständigung |
+| `AI_PROMPT.md` | Copy-Paste-Prompt für ChatGPT/Claude/Google AI zur Erstellung neuer Gerätedefinitionen |
+| `WLED.json` | Beispiel: WLED LED-Controller |
+| `Tasmota.json` | Beispiel: Tasmota-basierte Geräte (Schalter, Steckdose, Sensor) |
+| `ShellyPro3EM.json` | Beispiel: Shelly Pro 3EM Energiezähler (Gen2) |
+
+## VSCode-Validierung
+
+Um Validierung und Auto-Vervollständigung in VSCode zu aktivieren, füge in deine JSON-Datei ein:
+
+```json
+{
+  "$schema": "schema.json",
+  "device": "...",
+  "channels": [ ... ]
+}
+```
+
+---
+
 ---
 
 ## Struktur
