@@ -1,0 +1,106 @@
+{
+  "device": "DS18B20 Multisensor",
+  "_note": "Tasmota-Gerät mit bis zu 6x DS18B20 + BME280. Topic-Prefix anpassen: XXXXXX → Tasmota-Gerätename (Tasmota → Configuration → MQTT → Topic). Nicht benötigte Channels nach dem Import löschen. Payload-Beispiel: {\"DS18B20-1\":{\"Id\":\"...\",\"Temperature\":19.5},\"BME280\":{\"Temperature\":19.4,\"Humidity\":54.4,...}}",
+  "channels": [
+
+    {
+      "name": "Status",
+      "note": "LWT: 1=online, 0=offline",
+      "subscribeTopic": "tele/XXXXXX/LWT",
+      "dataType": "int",
+      "valueMapIn": {"Online": "1", "Offline": "0"},
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "DS18B20-1 Temperatur",
+      "subscribeTopic": "tele/XXXXXX/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json['DS18B20-1'].Temperature | round(1) }}",
+      "unit": "°C",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "DS18B20-2 Temperatur",
+      "subscribeTopic": "tele/XXXXXX/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json['DS18B20-2'].Temperature | round(1) }}",
+      "unit": "°C",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "DS18B20-3 Temperatur",
+      "subscribeTopic": "tele/XXXXXX/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json['DS18B20-3'].Temperature | round(1) }}",
+      "unit": "°C",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "DS18B20-4 Temperatur",
+      "subscribeTopic": "tele/XXXXXX/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json['DS18B20-4'].Temperature | round(1) }}",
+      "unit": "°C",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "DS18B20-5 Temperatur",
+      "subscribeTopic": "tele/XXXXXX/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json['DS18B20-5'].Temperature | round(1) }}",
+      "unit": "°C",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "DS18B20-6 Temperatur",
+      "subscribeTopic": "tele/XXXXXX/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json['DS18B20-6'].Temperature | round(1) }}",
+      "unit": "°C",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "BME280 Temperatur",
+      "subscribeTopic": "tele/XXXXXX/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.BME280.Temperature | round(1) }}",
+      "unit": "°C",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "BME280 Luftfeuchtigkeit",
+      "subscribeTopic": "tele/XXXXXX/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.BME280.Humidity | round(1) }}",
+      "unit": "%",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "BME280 Luftdruck",
+      "subscribeTopic": "tele/XXXXXX/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.BME280.Pressure | round(1) }}",
+      "unit": "hPa",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "BME280 Taupunkt",
+      "subscribeTopic": "tele/XXXXXX/SENSOR",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.BME280.DewPoint | round(1) }}",
+      "unit": "°C",
+      "direction": "subscribe"
+    }
+
+  ]
+}
