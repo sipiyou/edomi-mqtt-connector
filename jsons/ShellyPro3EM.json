@@ -1,0 +1,254 @@
+{
+  "device": "Shelly Pro 3EM",
+  "_note": "VORAUSSETZUNG: status_ntf am Shelly aktivieren (einmalig): http://SHELLY-IP/rpc/MQTT.SetConfig?config={\"status_ntf\":true} — ohne diese Einstellung werden status/em:0 und status/emdata:0 NICHT publiziert (Shelly Gen2 Default ist events/rpc mit Wrapper-JSON). Topic-Prefix ersetzen: shellyproem3-XXXXXX → eigene Geräte-ID (z.B. shellyproem3-AABBCC). Geräte-ID: Shelly Weboberfläche → Einstellungen → Gerätename. MQTT-Prefix: Gen2-Standard ohne 'shellies/'-Präfix. Energiewerte in emdata:0 sind in Wh, Template rechnet in kWh um.",
+  "channels": [
+    {
+      "name": "L1 Spannung V",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "a_voltage",
+      "direction": "subscribe",
+      "unit": "V",
+      "note": "Spannung Phase L1"
+    },
+    {
+      "name": "L1 Strom A",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "a_current",
+      "direction": "subscribe",
+      "unit": "A",
+      "note": "Strom Phase L1"
+    },
+    {
+      "name": "L1 Wirkleistung W",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "a_act_power",
+      "direction": "subscribe",
+      "unit": "W",
+      "note": "Wirkleistung Phase L1 (negativ = Einspeisung)"
+    },
+    {
+      "name": "L1 Scheinleistung VA",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "a_aprt_power",
+      "direction": "subscribe",
+      "unit": "VA",
+      "note": "Scheinleistung Phase L1"
+    },
+    {
+      "name": "L1 Leistungsfaktor",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "a_pf",
+      "direction": "subscribe",
+      "note": "Leistungsfaktor Phase L1 (0..1)"
+    },
+    {
+      "name": "L2 Spannung V",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "b_voltage",
+      "direction": "subscribe",
+      "unit": "V",
+      "note": "Spannung Phase L2"
+    },
+    {
+      "name": "L2 Strom A",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "b_current",
+      "direction": "subscribe",
+      "unit": "A",
+      "note": "Strom Phase L2"
+    },
+    {
+      "name": "L2 Wirkleistung W",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "b_act_power",
+      "direction": "subscribe",
+      "unit": "W",
+      "note": "Wirkleistung Phase L2 (negativ = Einspeisung)"
+    },
+    {
+      "name": "L2 Scheinleistung VA",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "b_aprt_power",
+      "direction": "subscribe",
+      "unit": "VA",
+      "note": "Scheinleistung Phase L2"
+    },
+    {
+      "name": "L2 Leistungsfaktor",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "b_pf",
+      "direction": "subscribe",
+      "note": "Leistungsfaktor Phase L2 (0..1)"
+    },
+    {
+      "name": "L3 Spannung V",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "c_voltage",
+      "direction": "subscribe",
+      "unit": "V",
+      "note": "Spannung Phase L3"
+    },
+    {
+      "name": "L3 Strom A",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "c_current",
+      "direction": "subscribe",
+      "unit": "A",
+      "note": "Strom Phase L3"
+    },
+    {
+      "name": "L3 Wirkleistung W",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "c_act_power",
+      "direction": "subscribe",
+      "unit": "W",
+      "note": "Wirkleistung Phase L3 (negativ = Einspeisung)"
+    },
+    {
+      "name": "L3 Scheinleistung VA",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "c_aprt_power",
+      "direction": "subscribe",
+      "unit": "VA",
+      "note": "Scheinleistung Phase L3"
+    },
+    {
+      "name": "L3 Leistungsfaktor",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "c_pf",
+      "direction": "subscribe",
+      "note": "Leistungsfaktor Phase L3 (0..1)"
+    },
+    {
+      "name": "Frequenz Hz",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "a_freq",
+      "direction": "subscribe",
+      "unit": "Hz",
+      "note": "Netzfrequenz (alle Phasen identisch)"
+    },
+    {
+      "name": "Gesamt Strom A",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "total_current",
+      "direction": "subscribe",
+      "unit": "A",
+      "note": "Summe Strom L1+L2+L3"
+    },
+    {
+      "name": "Gesamt Wirkleistung W",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "total_act_power",
+      "direction": "subscribe",
+      "unit": "W",
+      "note": "Summe Wirkleistung L1+L2+L3 (negativ = Einspeisung)"
+    },
+    {
+      "name": "Gesamt Scheinleistung VA",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/em:0",
+      "dataType": "float",
+      "jsonPath": "total_aprt_power",
+      "direction": "subscribe",
+      "unit": "VA",
+      "note": "Summe Scheinleistung L1+L2+L3"
+    },
+    {
+      "name": "L1 Energie Bezug kWh",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/emdata:0",
+      "dataType": "float",
+      "jsonPath": "a_total_act_energy",
+      "valueTemplate": "{{ value | float / 1000 | round(3) }}",
+      "direction": "subscribe",
+      "unit": "kWh",
+      "note": "Zählerstand Bezug Phase L1 (Gerät liefert Wh, Template rechnet in kWh um)"
+    },
+    {
+      "name": "L2 Energie Bezug kWh",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/emdata:0",
+      "dataType": "float",
+      "jsonPath": "b_total_act_energy",
+      "valueTemplate": "{{ value | float / 1000 | round(3) }}",
+      "direction": "subscribe",
+      "unit": "kWh",
+      "note": "Zählerstand Bezug Phase L2"
+    },
+    {
+      "name": "L3 Energie Bezug kWh",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/emdata:0",
+      "dataType": "float",
+      "jsonPath": "c_total_act_energy",
+      "valueTemplate": "{{ value | float / 1000 | round(3) }}",
+      "direction": "subscribe",
+      "unit": "kWh",
+      "note": "Zählerstand Bezug Phase L3"
+    },
+    {
+      "name": "Gesamt Energie Bezug kWh",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/emdata:0",
+      "dataType": "float",
+      "jsonPath": "total_act",
+      "valueTemplate": "{{ value | float / 1000 | round(3) }}",
+      "direction": "subscribe",
+      "unit": "kWh",
+      "note": "Gesamtzählerstand Bezug L1+L2+L3"
+    },
+    {
+      "name": "L1 Energie Einspeisung kWh",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/emdata:0",
+      "dataType": "float",
+      "jsonPath": "a_total_act_ret_energy",
+      "valueTemplate": "{{ value | float / 1000 | round(3) }}",
+      "direction": "subscribe",
+      "unit": "kWh",
+      "note": "Zählerstand Einspeisung Phase L1 (z.B. PV)"
+    },
+    {
+      "name": "L2 Energie Einspeisung kWh",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/emdata:0",
+      "dataType": "float",
+      "jsonPath": "b_total_act_ret_energy",
+      "valueTemplate": "{{ value | float / 1000 | round(3) }}",
+      "direction": "subscribe",
+      "unit": "kWh",
+      "note": "Zählerstand Einspeisung Phase L2"
+    },
+    {
+      "name": "L3 Energie Einspeisung kWh",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/emdata:0",
+      "dataType": "float",
+      "jsonPath": "c_total_act_ret_energy",
+      "valueTemplate": "{{ value | float / 1000 | round(3) }}",
+      "direction": "subscribe",
+      "unit": "kWh",
+      "note": "Zählerstand Einspeisung Phase L3"
+    },
+    {
+      "name": "Gesamt Energie Einspeisung kWh",
+      "subscribeTopic": "shellyproem3-XXXXXX/status/emdata:0",
+      "dataType": "float",
+      "jsonPath": "total_act_ret",
+      "valueTemplate": "{{ value | float / 1000 | round(3) }}",
+      "direction": "subscribe",
+      "unit": "kWh",
+      "note": "Gesamtzählerstand Einspeisung L1+L2+L3"
+    }
+  ]
+}
