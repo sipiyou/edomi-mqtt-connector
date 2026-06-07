@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Edomi MQTT LBS – Gerätedefinition",
+  "description": "JSON-Schema für Gerätedefinitionen des Edomi MQTT Connectors (LBS 19002763).",
+  "type": "object",
+  "required": ["device", "channels"],
+  "additionalProperties": false,
+  "properties": {
+    "device": {
+      "type": "string",
+      "description": "Gerätename (Anzeigename im Admin)"
+    },
+    "_note": {
+      "type": "string",
+      "description": "Optionaler Hinweistext (wird vom LBS ignoriert)"
+    },
+    "channels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "direction", "dataType"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Channel-Name. Muss pro Gerät eindeutig sein. Wird beim Re-Import als Schlüssel verwendet — nicht umbenennen."
+          },
+          "subscribeTopic": {
+            "type": "string",
+            "description": "MQTT-Topic für Empfang (MQTT-Payload → Edomi KO). Leer lassen wenn nur publish."
+          },
+          "publishTopic": {
+            "type": "string",
+            "description": "MQTT-Topic für Senden (Edomi KO → MQTT). Leer lassen wenn nur subscribe."
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["subscribe", "publish", "both"],
+            "description": "'subscribe' = nur Empfang, 'publish' = nur Senden, 'both' = beides"
+          },
+          "dataType": {
+            "type": "string",
+            "enum": ["string", "int", "float", "bool"],
+            "description": "Datentyp des Edomi-KO-Wertes nach der Konvertierung"
+          },
+          "jsonPath": {
+            "type": "string",
+            "description": "Feld aus JSON-Payload extrahieren. Dot-Notation ohne $-Prefix. Beispiele: 'temperature', 'sensor.value', 'a_voltage'. Leer lassen wenn Payload kein JSON ist oder direkt verwendet wird."
+          },
+          "valueTemplate": {
+            "type": "string",
+            "description": "Jinja2-Template für Empfang (MQTT → KO). Verfügbare Variablen: value (Rohwert), value_json.feld (JSON-Feld). Filter: float, int, round, round(N), upper, lower, Arithmetik (+/-/*/÷). Beispiele: '{{ value | float / 10 | round(1) }}', '{{ value_json.temperature | round(2) }}', '{{ value | float * 0.001 | round(3) }}'."
+          },
+          "commandTemplate": {
+            "type": "string",
+            "description": "Jinja2-Template für Senden (KO → MQTT). {{ value }} wird durch den KO-Wert ersetzt. Beispiele: '{\"brightness\": {{ value | int }}}', 'ON' (fest), '{{ value }}'."
+          },
+          "valueMapIn": {
+            "type": ["object", "null"],
+            "description": "Wertemapping MQTT→KO (String→String). Wird nach valueTemplate angewendet. Beispiel: {\"ON\": \"1\", \"OFF\": \"0\"}. Alle Werte als Strings angeben.",
+            "additionalProperties": {"type": "string"}
+          },
+          "valueMapOut": {
+            "type": ["object", "null"],
+            "description": "Wertemapping KO→MQTT (String→String). Wird vor commandTemplate angewendet. Beispiel: {\"1\": \"ON\", \"0\": \"OFF\"}. Alle Werte als Strings angeben.",
+            "additionalProperties": {"type": "string"}
+          },
+          "unit": {
+            "type": "string",
+            "description": "Einheit zur Dokumentation (z.B. '°C', 'W', 'kWh', '%', 'lux'). Hat keinen Einfluss auf die Verarbeitung."
+          },
+          "note": {
+            "type": "string",
+            "description": "Freitext-Hinweis, wird im Admin angezeigt."
+          }
+        }
+      }
+    }
+  }
+}
