@@ -34,6 +34,12 @@ Optionales Top-Level-Feld: "_note" (String, Hinweis für den Nutzer)
                       Beispiele: "{{ value | float / 10 | round(1) }}"
                                  "{{ value_json.temperature | round(1) }}"
                                  "{{ value_json.ENERGY.Power | int }}"
+                                 "{{ value_json['DS18B20-1'].Temperature }}"   (Key mit Sonderzeichen)
+                                 "{{ value_json_byid('000000AF9C70').Temperature }}"  (Lookup nach Id statt Position)
+                      value_json_byid('<wert>'[,'<feld>']) : durchsucht die Werte des JSON-Objekts
+                      nach einem Untereintrag, dessen Feld (Default 'Id') == <wert> ist, und liefert
+                      diesen Untereintrag. Stabil bei Sensoren, deren Positions-Key (z.B. DS18B20-1)
+                      sich ändern kann. Danach .subkey + Filter wie gewohnt.
 - "commandTemplate" : Jinja2-Template für Senden. {{ value }} = KO-Wert.
                       Beispiel: "{\"brightness\": {{ value | int }}}"
 - "valueMapIn"      : Lookup-Tabelle MQTT→KO. Alle Werte als Strings.

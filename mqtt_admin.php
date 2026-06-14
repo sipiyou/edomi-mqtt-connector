@@ -1269,10 +1269,18 @@ function submitScanChannel(rowId, topic) {
 <div class="page-wrap">
 <h1>MQTT Connector &mdash; Admin</h1>
 <p class="msg-warn">Nach &Auml;nderungen an Ger&auml;ten oder KO-Zuordnungen LBS neu starten (E1&nbsp;=&nbsp;0, dann E1&nbsp;=&nbsp;1).</p>
-<?php if (!checkBroker()): ?>
-<p class="msg-err">&#9888; MQTT-Broker nicht erreichbar (localhost:1883).<br>
+<?php
+$_brokerRow = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT host, port FROM edomiProject.mqttBroker LIMIT 1") ?: false) ?: [];
+$_brokerHost = !empty($_brokerRow['host']) ? $_brokerRow['host'] : 'localhost';
+$_brokerPort = !empty($_brokerRow['port']) ? (int)$_brokerRow['port'] : 1883;
+if (!checkBroker($_brokerHost, $_brokerPort)): ?>
+<p class="msg-err">&#9888; MQTT-Broker nicht erreichbar (<?= htmlspecialchars($_brokerHost) ?>:<?= $_brokerPort ?>).<br>
+<?php if ($_brokerHost === 'localhost' || $_brokerHost === '127.0.0.1'): ?>
 <code>apt install mosquitto &amp;&amp; systemctl start mosquitto</code><br>
 In <code>/etc/mosquitto/conf.d/local.conf</code>: <code>listener 1883</code> / <code>allow_anonymous true</code>
+<?php else: ?>
+Broker-Host pr&uuml;fen: Ist Mosquitto auf <b><?= htmlspecialchars($_brokerHost) ?></b> gestartet und Port <?= $_brokerPort ?> erreichbar?
+<?php endif; ?>
 </p>
 <?php endif; ?>
 
@@ -1440,8 +1448,8 @@ $ls = $ch['lastSeen']  ?? '';
   <td colspan="3" style="font-size:10px">
     <?php if ($ch['valueTemplate']):   ?>rxTpl: <b><?= h($ch['valueTemplate'])   ?></b>&nbsp; <?php endif ?>
     <?php if ($ch['commandTemplate']): ?>txTpl: <b><?= h($ch['commandTemplate']) ?></b>&nbsp; <?php endif ?>
-    <?php if ($ch['valueMapIn']): $mi = json_decode($ch['valueMapIn'],true)??[]; ?>mapIn: <b><?= count($mi) ?> Eintr.</b> <span style="color:#808080">(<?= implode(', ', array_map(fn($k,$v)=>h($k).' → '.h($v), array_keys($mi), $mi)) ?>)</span>&nbsp;<?php endif ?>
-    <?php if ($ch['valueMapOut']): $mo = json_decode($ch['valueMapOut'],true)??[]; ?>mapOut: <b><?= count($mo) ?> Eintr.</b> <span style="color:#808080">(<?= implode(', ', array_map(fn($k,$v)=>h($k).' → '.h($v), array_keys($mo), $mo)) ?>)</span><?php endif ?>
+    <?php if ($ch['valueMapIn']): $mi = json_decode($ch['valueMapIn'],true)??[]; ?>mapIn: <b><?= count($mi) ?> Eintr.</b> <span style="color:#808080">(<?= implode(', ', array_map(function($k,$v){return h($k).' → '.h($v);}, array_keys($mi), $mi)) ?>)</span>&nbsp;<?php endif ?>
+    <?php if ($ch['valueMapOut']): $mo = json_decode($ch['valueMapOut'],true)??[]; ?>mapOut: <b><?= count($mo) ?> Eintr.</b> <span style="color:#808080">(<?= implode(', ', array_map(function($k,$v){return h($k).' → '.h($v);}, array_keys($mo), $mo)) ?>)</span><?php endif ?>
   </td>
   <td></td>
 </tr>

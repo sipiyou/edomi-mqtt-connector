@@ -1,6 +1,6 @@
 {
   "device": "DS18B20 Multisensor",
-  "_note": "Tasmota-Gerät mit bis zu 6x DS18B20 + BME280. Topic-Prefix anpassen: XXXXXX → Tasmota-Gerätename (Tasmota → Configuration → MQTT → Topic). Nicht benötigte Channels nach dem Import löschen. Payload-Beispiel: {\"DS18B20-1\":{\"Id\":\"...\",\"Temperature\":19.5},\"BME280\":{\"Temperature\":19.4,\"Humidity\":54.4,...}}",
+  "_note": "Tasmota-Gerät mit bis zu 6x DS18B20 + BME280. Topic-Prefix anpassen: XXXXXX → Tasmota-Gerätename (Tasmota → Configuration → MQTT → Topic). WICHTIG zur Sensor-Zuordnung: Die Position 'DS18B20-1'..'DS18B20-6' vergibt Tasmota nach Erkennungsreihenfolge – die kann sich ändern, dann wären die Messwerte vertauscht. Stabil ist die Sensor-'Id'. Diese Vorlage nutzt daher value_json_byid('<Id>') – trage die echte Id jedes Sensors ein (steht im SENSOR-Payload: {\"DS18B20-1\":{\"Id\":\"000000AF9C70\",\"Temperature\":19.5}}). Alternativ (nicht empfohlen) positionsbasiert: value_json['DS18B20-1'].Temperature. Nicht benötigte Channels nach dem Import löschen.",
   "channels": [
 
     {
@@ -13,55 +13,61 @@
     },
 
     {
-      "name": "DS18B20-1 Temperatur",
+      "name": "Temperatur Sensor A",
+      "note": "Id durch echte Sensor-Id ersetzen (aus SENSOR-Payload, Feld 'Id'). Stabil unabhängig von der DS18B20-N-Reihenfolge.",
       "subscribeTopic": "tele/XXXXXX/SENSOR",
       "dataType": "float",
-      "valueTemplate": "{{ value_json['DS18B20-1'].Temperature | round(1) }}",
+      "valueTemplate": "{{ value_json_byid('000000AF9C70').Temperature | round(1) }}",
       "unit": "°C",
       "direction": "subscribe"
     },
 
     {
-      "name": "DS18B20-2 Temperatur",
+      "name": "Temperatur Sensor B",
+      "note": "Id durch echte Sensor-Id ersetzen.",
       "subscribeTopic": "tele/XXXXXX/SENSOR",
       "dataType": "float",
-      "valueTemplate": "{{ value_json['DS18B20-2'].Temperature | round(1) }}",
+      "valueTemplate": "{{ value_json_byid('000000B12345').Temperature | round(1) }}",
       "unit": "°C",
       "direction": "subscribe"
     },
 
     {
-      "name": "DS18B20-3 Temperatur",
+      "name": "Temperatur Sensor C",
+      "note": "Id durch echte Sensor-Id ersetzen.",
       "subscribeTopic": "tele/XXXXXX/SENSOR",
       "dataType": "float",
-      "valueTemplate": "{{ value_json['DS18B20-3'].Temperature | round(1) }}",
+      "valueTemplate": "{{ value_json_byid('SENSOR_ID_C').Temperature | round(1) }}",
       "unit": "°C",
       "direction": "subscribe"
     },
 
     {
-      "name": "DS18B20-4 Temperatur",
+      "name": "Temperatur Sensor D",
+      "note": "Id durch echte Sensor-Id ersetzen.",
       "subscribeTopic": "tele/XXXXXX/SENSOR",
       "dataType": "float",
-      "valueTemplate": "{{ value_json['DS18B20-4'].Temperature | round(1) }}",
+      "valueTemplate": "{{ value_json_byid('SENSOR_ID_D').Temperature | round(1) }}",
       "unit": "°C",
       "direction": "subscribe"
     },
 
     {
-      "name": "DS18B20-5 Temperatur",
+      "name": "Temperatur Sensor E",
+      "note": "Id durch echte Sensor-Id ersetzen.",
       "subscribeTopic": "tele/XXXXXX/SENSOR",
       "dataType": "float",
-      "valueTemplate": "{{ value_json['DS18B20-5'].Temperature | round(1) }}",
+      "valueTemplate": "{{ value_json_byid('SENSOR_ID_E').Temperature | round(1) }}",
       "unit": "°C",
       "direction": "subscribe"
     },
 
     {
-      "name": "DS18B20-6 Temperatur",
+      "name": "Temperatur Sensor F",
+      "note": "Id durch echte Sensor-Id ersetzen.",
       "subscribeTopic": "tele/XXXXXX/SENSOR",
       "dataType": "float",
-      "valueTemplate": "{{ value_json['DS18B20-6'].Temperature | round(1) }}",
+      "valueTemplate": "{{ value_json_byid('SENSOR_ID_F').Temperature | round(1) }}",
       "unit": "°C",
       "direction": "subscribe"
     },

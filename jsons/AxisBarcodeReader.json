@@ -1,0 +1,370 @@
+{
+  "device": "Axis A8207-VE Mk II Türstation",
+  "note": "Serial im Topic anpassen (B8A44F27623E → eigene Kamera-Seriennummer, steht in System→MQTT→deviceTopicPrefix). WICHTIG: Dieser LBS matcht Topics EXAKT (keine MQTT-Wildcards). Topic-Schema: 'axis/<SERIAL>/event/' + ONVIF-Topic, wobei jedes Namespace-Präfix 'X:' zu 'tns:X/' wird (z.B. onvif:Device/axis:Intercom/RFID → tns:onvif/Device/tns:axis/Intercom/RFID). Events MIT Quelle bekommen zusätzlich ein Suffix /$source/<Key>/<Wert> ans Topic angehängt – exakt so eintragen wie per 'mosquitto_sub -h <broker> -t axis/# -v' erfasst. Jeder Channel braucht zusätzlich das passende MQTT-Event-Publishing auf der Kamera (System→MQTT→Publication). Alle Channels real verifiziert. RFID-Zutritt läuft über die Kamera-Entry-List (Channels 'Zutritt gewährt/verweigert', CredentialId) – eine rohe RFID-UID liefert das Gerät per MQTT nicht (nur über den VAPIX-Reader-Protocol-Pfad). PIN-Eingabe erzeugt kein Event (keine Keypad-Hardware).",
+  "channels": [
+
+    {
+      "name": "Barcode",
+      "note": "BESTÄTIGT. Dekodierter QR-/Barcode-Inhalt. Feuert bei jedem erkannten Code. Auswertung (Whitelist/Türöffnung) in EDOMI-Logik.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:axis/CameraApplicationPlatform/BarcodeReader/BarcodeFound",
+      "dataType": "string",
+      "valueTemplate": "{{ value_json.message.data.data }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Barcode-Typ",
+      "note": "BESTÄTIGT. z.B. QRCode, Code128.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:axis/CameraApplicationPlatform/BarcodeReader/BarcodeFound",
+      "dataType": "string",
+      "valueTemplate": "{{ value_json.message.data.type }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Barcode-Zeit",
+      "note": "BESTÄTIGT. Zeitstempel des Scans laut Kamera.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:axis/CameraApplicationPlatform/BarcodeReader/BarcodeFound",
+      "dataType": "string",
+      "valueTemplate": "{{ value_json.message.data.time }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Verbindung",
+      "note": "BESTÄTIGT. Online/Offline der Kamera (MQTT connect/lastwill, useDefault). 1=verbunden, 0=getrennt.",
+      "subscribeTopic": "axis/B8A44F27623E/event/connection",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.connected }}",
+      "valueMapIn": {"true": "1", "false": "0", "True": "1", "False": "0"},
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Rufstatus",
+      "note": "BESTÄTIGT. Intercom-Ruf. Publication 'axis:Call/State' aktiviert. Werte: Calling (= Klingeltaste gedrückt), Idle (beendet), ggf. weitere. Topic enthält Quell-Suffix /$source/Source/DoorStation.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:axis/Call/State/$source/Source/DoorStation",
+      "dataType": "string",
+      "valueTemplate": "{{ value_json.message.data.CallState }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Rufstatus (Code)",
+      "note": "BESTÄTIGT (Idle/Calling real gesehen). Gleiche Quelle wie Rufstatus, als Zahlencode für KO-Logik: 0=Idle, 1=Calling, 2=Ringing, 3=Active (Gespräch), 4=Terminated. Nicht gemappte Zustände → 0 (LBS-int-Cast); ggf. ergänzen.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:axis/Call/State/$source/Source/DoorStation",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.CallState }}",
+      "valueMapIn": {"Idle": "0", "Calling": "1", "Ringing": "2", "Active": "3", "Terminated": "4"},
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Zutritt gewährt (CredentialId)",
+      "note": "BESTÄTIGT. Entry-List-Zutritt gewährt (Kamera-interne Liste, nach RFID/PIN/Barcode). Publication 'Entry List Access Granted'. CredentialId = Hash des Credentials (zum Mappen auf Person in EDOMI).",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/Intercom/ELAccessGranted",
+      "dataType": "string",
+      "valueTemplate": "{{ value_json.message.data.CredentialId }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Zutritt verweigert (CredentialId)",
+      "note": "BESTÄTIGT. Entry-List-Zutritt verweigert. CredentialId='Unknown' wenn unbekanntes Credential.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/Intercom/ELAccessDenied",
+      "dataType": "string",
+      "valueTemplate": "{{ value_json.message.data.CredentialId }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "PIR-Bewegung",
+      "note": "BESTÄTIGT. PIR-Bewegungssensor. 1=Bewegung. Topic mit Quell-Suffix /$source/sensor/0.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/Sensor/PIR/$source/sensor/0",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.state }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Audio-Trigger",
+      "note": "BESTÄTIGT. Audio-Pegel über Schwelle (z.B. Geräusch/Lärm). 1=ausgelöst.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/AudioSource/tns:axis/TriggerLevel/$source/AudioSource/AudioDevice0Input0/channel/1",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.triggered }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Aufnahme läuft",
+      "note": "BESTÄTIGT. Storage-Recording aktiv. 1=Aufnahme läuft.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:axis/Storage/Recording",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.recording }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Speicher-Alarm (SD)",
+      "note": "BESTÄTIGT. SD-Karte Alarmzustand. 1=Alarm. Weitere Felder im Payload: wear, temperature, overall_health (-3 = nicht verfügbar). Für NetworkShare Topic-Suffix disk_id/NetworkShare nutzen.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:axis/Storage/Alert/$source/disk_id/SD_DISK",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.alert }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "System bereit",
+      "note": "BESTÄTIGT. Kamera/Dienste hochgefahren (feuert v.a. beim Boot). 1=bereit.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/Status/SystemReady",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.ready }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Temperatur-Status",
+      "note": "BESTÄTIGT. Geräte-Temperatur außerhalb Betriebsbereich (über ODER unter). 0=ok, 1=außerhalb. Für getrennte Über-/Unter-Erkennung separate Topics nutzen: .../Status/Temperature/Above bzw. .../Below (eigener Channel).",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/Status/Temperature/Above_or_below",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.sensor_level }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Virtueller Eingang 1",
+      "note": "BESTÄTIGT. Virtueller IO-Port (z.B. als generischer Trigger nutzbar). 1=aktiv. Für andere Ports Suffix /$source/port/N anpassen (gesehen: 1, 5).",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/IO/VirtualPort/$source/port/1",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.state }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Virtueller Eingang 5",
+      "note": "BESTÄTIGT. Virtueller IO-Port 5. 1=aktiv.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/IO/VirtualPort/$source/port/5",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.state }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "MQTT-Client verbunden",
+      "note": "BESTÄTIGT. Interner MQTT-Client-Status der Kamera. connected=1 wenn mit Broker verbunden. Kein Quell-Suffix.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/MQTT/ClientStatus",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.connected }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "MQTT-Client aktiv",
+      "note": "BESTÄTIGT. active=1 wenn MQTT-Client aktiviert (selbes Event wie 'MQTT-Client verbunden').",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/MQTT/ClientStatus",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.active }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "PTZ bereit Kanal 1",
+      "note": "BESTÄTIGT. PTZ-Controller Kanal 1 bereit. 1=bereit.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/PTZController/tns:axis/PTZReady/$source/channel/1",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.ready }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "PTZ bereit Kanal 2",
+      "note": "BESTÄTIGT. PTZ-Controller Kanal 2 bereit. 1=bereit.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/PTZController/tns:axis/PTZReady/$source/channel/2",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.ready }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "PTZ bereit Kanal 3",
+      "note": "BESTÄTIGT. PTZ-Controller Kanal 3 bereit. 1=bereit.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/PTZController/tns:axis/PTZReady/$source/channel/3",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.ready }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "PTZ bereit Kanal 4",
+      "note": "BESTÄTIGT. PTZ-Controller Kanal 4 bereit. 1=bereit.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/PTZController/tns:axis/PTZReady/$source/channel/4",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.ready }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "PTZ bereit Kanal 5",
+      "note": "BESTÄTIGT. PTZ-Controller Kanal 5 bereit. 1=bereit.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/PTZController/tns:axis/PTZReady/$source/channel/5",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.ready }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "ABR-Fehler Stream 1",
+      "note": "BESTÄTIGT. Adaptive Bitrate Fehler für VideoSource 1. 0=ok, 1=Fehler.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/VideoSource/tns:axis/ABR/$source/VideoSourceConfigurationToken/1",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.abr_error }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "ABR-Fehler Stream 2",
+      "note": "BESTÄTIGT. Adaptive Bitrate Fehler für VideoSource 2.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/VideoSource/tns:axis/ABR/$source/VideoSourceConfigurationToken/2",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.abr_error }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "ABR-Fehler Stream 3",
+      "note": "BESTÄTIGT. Adaptive Bitrate Fehler für VideoSource 3.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/VideoSource/tns:axis/ABR/$source/VideoSourceConfigurationToken/3",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.abr_error }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "ABR-Fehler Stream 4",
+      "note": "BESTÄTIGT. Adaptive Bitrate Fehler für VideoSource 4.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/VideoSource/tns:axis/ABR/$source/VideoSourceConfigurationToken/4",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.abr_error }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "ABR-Fehler Stream 5",
+      "note": "BESTÄTIGT. Adaptive Bitrate Fehler für VideoSource 5.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/VideoSource/tns:axis/ABR/$source/VideoSourceConfigurationToken/5",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.abr_error }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Gehäuse offen (Sabotage)",
+      "note": "BESTÄTIGT. Tamper/Casing-Open-Erkennung. 1=Gehäuse geöffnet.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/Casing/Open/$source/Name/Casing",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.Open }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Digitaler Ausgang 4",
+      "note": "BESTÄTIGT. Digitaler Ausgang/Relais Port 4 (z.B. Türöffner). 1=aktiv.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/IO/OutputPort/$source/port/4",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.state }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Digitaler Ausgang 5",
+      "note": "BESTÄTIGT. Digitaler Ausgang/Relais Port 5. 1=aktiv.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/IO/OutputPort/$source/port/5",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.state }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Digitaler Ausgang 6",
+      "note": "BESTÄTIGT. Digitaler Ausgang/Relais Port 6. 1=aktiv.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/IO/OutputPort/$source/port/6",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.state }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Netzwerk verloren (Any)",
+      "note": "BESTÄTIGT. Netzwerkverbindung verloren (beliebige Schnittstelle). 1=verloren.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/Network/Lost/$source/interface/Any",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.lost }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Netzwerk verloren (eth0)",
+      "note": "BESTÄTIGT. Netzwerk verloren auf eth0. 1=verloren. (Varianten: interface/All, interface/Any.)",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/Device/tns:axis/Network/Lost/$source/interface/eth0",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.lost }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Audioclip-Wiedergabe",
+      "note": "BESTÄTIGT. Media-Clip auf Audio-Ausgang. 1=spielt.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:axis/MediaClip/Playing/$source/AudioOutput/1",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.Playing }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Livestream abgerufen",
+      "note": "BESTÄTIGT. Jemand greift auf den Live-Videostream zu. 1=Zugriff aktiv.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/VideoSource/tns:axis/LiveStreamAccessed",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.accessed }}",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Zeitplan Bürozeiten aktiv",
+      "note": "BESTÄTIGT. Axis-Zeitplan 'office_hours'. 1=innerhalb Bürozeit. Nützlich für zeitabhängige Zutrittslogik.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/UserAlarm/tns:axis/Recurring/Interval/$source/id/com.axis.schedules.office_hours",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.active }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Zeitplan Außerhalb Bürozeit aktiv",
+      "note": "BESTÄTIGT. Axis-Zeitplan 'after_hours'. 1=außerhalb Bürozeit.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/UserAlarm/tns:axis/Recurring/Interval/$source/id/com.axis.schedules.after_hours",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.active }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Zeitplan Wochentage aktiv",
+      "note": "BESTÄTIGT. Axis-Zeitplan 'weekdays'. 1=Mo-Fr.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/UserAlarm/tns:axis/Recurring/Interval/$source/id/com.axis.schedules.weekdays",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.active }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Zeitplan Wochenende aktiv",
+      "note": "BESTÄTIGT. Axis-Zeitplan 'weekends'. 1=Sa/So.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/UserAlarm/tns:axis/Recurring/Interval/$source/id/com.axis.schedules.weekends",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.active }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Speicher-Alarm (NetworkShare)",
+      "note": "BESTÄTIGT. Netzwerkfreigabe Alarmzustand. 1=Alarm. Felder: wear, temperature, overall_health (-3=n/a).",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:axis/Storage/Alert/$source/disk_id/NetworkShare",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.alert }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "PTZ in Bewegung Kanal 5",
+      "note": "BESTÄTIGT. PTZ-Bewegung Kanal 5. 1=bewegt sich.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/PTZController/tns:axis/Move/Channel_5/$source/PTZConfigurationToken/5",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.message.data.is_moving }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "PTZ Steuerungs-Queue 1",
+      "note": "BESTÄTIGT. Aktueller Besitzer der PTZ-Steuerungs-Queue (Token 1). Leer=frei.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/PTZController/tns:axis/ControlQueue/$source/PTZConfigurationToken/1",
+      "dataType": "string",
+      "valueTemplate": "{{ value_json.message.data.queue_owner }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "PTZ Steuerungs-Queue 5",
+      "note": "BESTÄTIGT. PTZ-Steuerungs-Queue (Token 5). Leer=frei.",
+      "subscribeTopic": "axis/B8A44F27623E/event/tns:onvif/PTZController/tns:axis/ControlQueue/$source/PTZConfigurationToken/5",
+      "dataType": "string",
+      "valueTemplate": "{{ value_json.message.data.queue_owner }}",
+      "direction": "subscribe"
+    }
+
+  ]
+}

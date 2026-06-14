@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Minimal MQTT 3.1.1 client over plain TCP (no TLS).
- * PHP 7.4 compatible, no external dependencies.
+ * PHP 7.2+ compatible, no external dependencies.
  *
  * Supports: CONNECT (plain + user/pass), PUBLISH (QoS 0), SUBSCRIBE (QoS 0/1), PING, DISCONNECT.
  * Incoming PUBLISH packets (QoS 0 and 1) are handled; PUBACK is sent for QoS 1.
@@ -20,15 +20,15 @@ class MqttClient
     private $prevErrorHandler = false;
 
     /** PUBLISH-Pakete die während subscribe() ankamen und noch nicht verarbeitet wurden */
-    private array $pendingMessages = [];
+    /* private array */ private $pendingMessages = [];
 
-    private string $host;
-    private int    $port;
-    private string $clientId;
-    private string $username;
-    private string $password;
-    private int    $keepAlive;
-    private float  $lastActivity;
+    /* private string */ private $host;
+    /* private int    */ private $port;
+    /* private string */ private $clientId;
+    /* private string */ private $username;
+    /* private string */ private $password;
+    /* private int    */ private $keepAlive;
+    /* private float  */ private $lastActivity;
 
     public function __construct(
         string $host,
@@ -259,7 +259,7 @@ class MqttClient
         $r = [$this->socket];
         $w = $e = null;
         $tvSec  = (int)$timeout;
-        $tvUsec = (int)(($timeout - $tvSec) * 1_000_000);
+        $tvUsec = (int)(($timeout - $tvSec) * 1000000);
 
         $n = @stream_select($r, $w, $e, $tvSec, $tvUsec);
         if ($n === false || $n === 0) return null;
@@ -300,7 +300,7 @@ class MqttClient
             $w = $e = null;
             $rem    = $deadline - microtime(true);
             $tvSec  = (int)$rem;
-            $tvUsec = (int)(($rem - $tvSec) * 1_000_000);
+            $tvUsec = (int)(($rem - $tvSec) * 1000000);
             if (@stream_select($r, $w, $e, $tvSec, $tvUsec) < 1) break;
             $chunk = @fread($this->socket, $need);
             if ($chunk === false || $chunk === '') break;
@@ -372,10 +372,40 @@ class MqttClient
 function mqtt_evalExpr(string $expr, string $raw): string {
     $decoded = null;
 
-    if (preg_match('/^value_json\[\'([^\']+)\'\](.*)$/s', $expr, $m)) {
+    if (preg_match("/^value_json_byid\(\s*'([^']*)'\s*(?:,\s*'([^']*)'\s*)?\)(.*)\$/s", $expr, $m)) {
+        // Lookup nach Inhalt statt Position: durchsucht die Werte des JSON-Objekts
+        // nach einem Untereintrag, dessen Feld (Default 'Id') == gesuchtem Wert.
+        // Beispiel: value_json_byid('000000AF9C70').Temperature
+        //           value_json_byid('000000AF9C70','Address').Temperature
+        $idVal   = $m[1];
+        $idField = (isset($m[2]) && $m[2] !== '') ? $m[2] : 'Id';
         $decoded = json_decode($raw, true);
-        $val  = (is_array($decoded) && isset($decoded[$m[1]])) ? (string)$decoded[$m[1]] : '';
+        $cur = '';
+        if (is_array($decoded)) {
+            foreach ($decoded as $entry) {
+                if (is_array($entry) && isset($entry[$idField]) && (string)$entry[$idField] === $idVal) {
+                    $cur = $entry;
+                    break;
+                }
+            }
+        }
+        $rest = isset($m[3]) ? $m[3] : '';
+        // Chained dot-notation: .subkey nach dem Lookup
+        while (is_array($cur) && preg_match('/^\.(\w+)(.*)$/s', $rest, $sm)) {
+            $cur  = isset($cur[$sm[1]]) ? $cur[$sm[1]] : '';
+            $rest = $sm[2];
+        }
+        $val = is_array($cur) ? '' : (string)$cur;
+    } elseif (preg_match('/^value_json\[\'([^\']+)\'\](.*)$/s', $expr, $m)) {
+        $decoded = json_decode($raw, true);
+        $cur  = (is_array($decoded) && isset($decoded[$m[1]])) ? $decoded[$m[1]] : '';
         $rest = $m[2];
+        // Chained dot-notation after bracket: value_json['key'].subkey
+        while (is_array($cur) && preg_match('/^\.(\w+)(.*)$/s', $rest, $sm)) {
+            $cur  = isset($cur[$sm[1]]) ? $cur[$sm[1]] : '';
+            $rest = $sm[2];
+        }
+        $val = is_array($cur) ? '' : (string)$cur;
     } elseif (preg_match('/^value_json\.(\w+(?:\.\w+)*)(.*)$/s', $expr, $m)) {
         $decoded = json_decode($raw, true);
         $cur = $decoded;
