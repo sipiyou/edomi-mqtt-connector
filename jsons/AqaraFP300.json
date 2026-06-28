@@ -1,0 +1,150 @@
+{
+  "device": "Aqara FP300 Präsenzsensor",
+  "_note": "Aqara Presence Sensor FP300 (Modell PS-S04D), via Zigbee2MQTT. Topic = friendly_name 'AqaraFP300' (in Z2M umbenannt). Bei erneuter Umbenennung in Z2M das Topic hier anpassen. Alle Sensorwerte stehen im SELBEN JSON-Payload des Geräte-Topics → jeder Channel extrahiert sein Feld. presence = Hauptwert (mmWave+PIR-Fusion): true→1/false→0 (über int-Cast). Konfig-Schreiben (z.B. Empfindlichkeit) ginge per publishTopic zigbee2mqtt/<name>/set mit {\"motion_sensitivity\":\"high\"} — hier weggelassen, nur Lesewerte.",
+  "channels": [
+    {
+      "name": "Anwesenheit",
+      "note": "mmWave+PIR-Präsenz. 1=anwesend, 0=frei. (Hauptwert)",
+      "subscribeTopic": "zigbee2mqtt/AqaraFP300",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.presence }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "PIR-Bewegung",
+      "note": "Reiner PIR-Teil. 1=Bewegung.",
+      "subscribeTopic": "zigbee2mqtt/AqaraFP300",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.pir_detection }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Zielentfernung",
+      "note": "Abstand des erkannten Ziels (mmWave).",
+      "subscribeTopic": "zigbee2mqtt/AqaraFP300",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.target_distance }}",
+      "unit": "m",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Helligkeit",
+      "subscribeTopic": "zigbee2mqtt/AqaraFP300",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.illuminance }}",
+      "unit": "lx",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Temperatur",
+      "subscribeTopic": "zigbee2mqtt/AqaraFP300",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.temperature | round(1) }}",
+      "unit": "°C",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Luftfeuchtigkeit",
+      "subscribeTopic": "zigbee2mqtt/AqaraFP300",
+      "dataType": "float",
+      "valueTemplate": "{{ value_json.humidity | round(1) }}",
+      "unit": "%",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Batterie",
+      "subscribeTopic": "zigbee2mqtt/AqaraFP300",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.battery }}",
+      "unit": "%",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Batteriespannung",
+      "subscribeTopic": "zigbee2mqtt/AqaraFP300",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.voltage }}",
+      "unit": "mV",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Linkqualität",
+      "subscribeTopic": "zigbee2mqtt/AqaraFP300",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.linkquality }}",
+      "unit": "lqi",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Set Empfindlichkeit",
+      "note": "motion_sensitivity. KO: 0=low, 1=medium, 2=high.",
+      "publishTopic": "zigbee2mqtt/AqaraFP300/set",
+      "dataType": "int",
+      "valueMapOut": {"0": "low", "1": "medium", "2": "high"},
+      "commandTemplate": "{\"motion_sensitivity\": \"{{ value }}\"}",
+      "direction": "publish"
+    },
+    {
+      "name": "Set Erkennungsmodus",
+      "note": "presence_detection_options. KO: 0=both, 1=mmwave, 2=pir.",
+      "publishTopic": "zigbee2mqtt/AqaraFP300/set",
+      "dataType": "int",
+      "valueMapOut": {"0": "both", "1": "mmwave", "2": "pir"},
+      "commandTemplate": "{\"presence_detection_options\": \"{{ value }}\"}",
+      "direction": "publish"
+    },
+    {
+      "name": "Set Abwesenheits-Verzögerung",
+      "note": "absence_delay_timer in Sekunden (numerisch).",
+      "publishTopic": "zigbee2mqtt/AqaraFP300/set",
+      "dataType": "int",
+      "commandTemplate": "{\"absence_delay_timer\": {{ value }}}",
+      "unit": "sec",
+      "direction": "publish"
+    },
+    {
+      "name": "Set PIR-Intervall",
+      "note": "pir_detection_interval in Sekunden (numerisch).",
+      "publishTopic": "zigbee2mqtt/AqaraFP300/set",
+      "dataType": "int",
+      "commandTemplate": "{\"pir_detection_interval\": {{ value }}}",
+      "unit": "sec",
+      "direction": "publish"
+    },
+    {
+      "name": "Set LED nachts aus",
+      "note": "led_disabled_night. KO: 0=OFF (LED an), 1=ON (LED nachts aus).",
+      "publishTopic": "zigbee2mqtt/AqaraFP300/set",
+      "dataType": "int",
+      "valueMapOut": {"0": "OFF", "1": "ON"},
+      "commandTemplate": "{\"led_disabled_night\": \"{{ value }}\"}",
+      "direction": "publish"
+    },
+    {
+      "name": "Set KI-Empfindlichkeit adaptiv",
+      "note": "ai_sensitivity_adaptive. KO: 0=OFF, 1=ON.",
+      "publishTopic": "zigbee2mqtt/AqaraFP300/set",
+      "dataType": "int",
+      "valueMapOut": {"0": "OFF", "1": "ON"},
+      "commandTemplate": "{\"ai_sensitivity_adaptive\": \"{{ value }}\"}",
+      "direction": "publish"
+    },
+    {
+      "name": "Aktion Raum-Lernen starten",
+      "note": "spatial_learning: jede KO-Änderung startet das Raum-Lernen (Wert egal).",
+      "publishTopic": "zigbee2mqtt/AqaraFP300/set",
+      "dataType": "int",
+      "commandTemplate": "{\"spatial_learning\": \"Start Learning\"}",
+      "direction": "publish"
+    },
+    {
+      "name": "Aktion Gerät neustarten",
+      "note": "restart_device: jede KO-Änderung löst Neustart aus (Wert egal).",
+      "publishTopic": "zigbee2mqtt/AqaraFP300/set",
+      "dataType": "int",
+      "commandTemplate": "{\"restart_device\": \"Restart Device\"}",
+      "direction": "publish"
+    }
+  ]
+}
