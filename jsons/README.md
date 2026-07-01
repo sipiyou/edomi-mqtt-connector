@@ -84,6 +84,12 @@ Jeder Eintrag in `channels` ist ein JSON-Objekt:
 | `commandTemplate` | string | Jinja2-Ausdruck zur Transformation des gesendeten Werts (siehe unten). |
 | `valueMapIn`      | object | Lookup-Tabelle: MQTT-Wert → KO-Wert (wird nach `valueTemplate` angewendet). |
 | `valueMapOut`     | object | Lookup-Tabelle: KO-Wert → MQTT-Wert (wird vor `commandTemplate` angewendet). |
+| `sendByChange`    | bool   | Default `true`. `false` = jede empfangene Nachricht ans KO durchreichen (auch bei gleichem Wert), z.B. IR-Fernbedienung/Taster. Wird intern als `@nosbc` im `note` gespeichert (keine eigene DB-Spalte). |
+
+> **Gemeinsames KO für Status + Steuerung (z.B. ein HSV-Regler):** Du darfst dasselbe KO als RD
+> (Status) und WR (Senden) zuweisen. Der LBS hat **Echo-Suppression** — ein aus einem empfangenen
+> Status geschriebener Wert wird genau einmal **nicht** zurückpubliziert, d.h. Fremdänderungen der
+> Lampe (App/Szene/Sensor) aktualisieren nur die Anzeige und lösen kein „Talk-back" aus.
 
 ---
 
@@ -164,6 +170,14 @@ Mini Jinja2-Parser. Ausdrücke werden in `{{ }}` eingebettet.
 | `+ N`         | Addieren |
 | `- N`         | Subtrahieren |
 
+### Funktionen
+
+| Funktion | Richtung | Beschreibung |
+|----------|----------|--------------|
+| `value_json_byid('<wert>'[,'<feld>'])` | Empfang | Durchsucht die Werte des JSON-Objekts nach einem Untereintrag, dessen Feld (Default `Id`) == `<wert>` ist. Danach `.subkey` + Filter. Stabil bei Sensoren mit wechselndem Positions-Key. |
+| `hsv_to_color('huePath','satPath','briPath'[,'statePath'][,briMax])` | Senden | Edomi-HSV-String `#HHSSVV` (H/S/V je 0..255) → EINE Z2M-/set-Nachricht mit Farbe + Helligkeit getrennt. Feldnamen als Pfad-Parameter (generisch, z.B. `'color.h','color.s','bri'`). **statePath gesetzt:** `state=ON`, bei V=0 nur `{statePath:"OFF"}`; **ohne statePath:** kein `state`-Feld. `briMax` (Default 254) für 0..254 vs 0..100. Ohne Argumente: Hue-Defaults. |
+| `color_to_hsv('huePath','satPath','briPath'[,'statePath'][,briMax])` | Empfang | Z2M-Farblampen-Status → Edomi-HSV-String `#HHSSVV`. Liest hue/sat über die Pfade (sonst `color.x`/`color.y` xy→HS-Fallback), V aus briPath. statePath gesetzt und `==OFF` → V=00. Ohne Argumente: Hue-Defaults (`color.hue`/`color.saturation`/`brightness`, briMax 254). |
+
 ### Beispiele
 
 ```
@@ -199,6 +213,15 @@ Mini Jinja2-Parser. Ausdrücke werden in `{{ }}` eingebettet.
 
 {"bri":{{ value | float * 2.55 | round | int }}}
     → JSON-Payload für commandTemplate aufbauen
+
+{{ hsv_to_color('color.hue','color.saturation','brightness','state') }}
+    → commandTemplate: Edomi-HSV #HHSSVV → {"state":"ON","brightness":B,"color":{"hue":H,"saturation":S}} (V=0 = AUS)
+
+{{ hsv_to_color('color.h','color.s','bri') }}
+    → andere Lampe mit Feldnamen bri/h/s, ohne state-Feld
+
+{{ color_to_hsv('color.hue','color.saturation','brightness','state') }}
+    → valueTemplate: Z2M-Status → Edomi-HSV #HHSSVV (state=OFF → V=00)
 ```
 
 ---

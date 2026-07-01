@@ -1,5 +1,5 @@
 ###[DEF]###
-[name           = MQTT Connector v1.09 ]
+[name           = MQTT Connector v1.10 ]
 
 [e#1 trigger    = (Re)Start/Stopp ]
 [e#2 important  = Broker-Host (leer oder localhost = lokal)#init=localhost ]
@@ -81,6 +81,10 @@ v1.06  05.06.2026 PHP 7.2 Kompatibilität: Typed Properties und Numeric Literal 
 v1.07  07.06.2026 Template-Engine: value_json['key'].subkey unterstützt (Bracket + Dot Chaining für JSON-Keys mit Sonderzeichen wie Bindestrichen, z.B. DS18B20-1)
 v1.08  08.06.2026 Admin: Broker-Check nutzt konfigurierten Host/Port aus DB statt hardcoded localhost:1883; Fehlermeldung passt sich an (lokal vs. remote)
 v1.09  10.06.2026 Template-Engine: value_json_byid('<id>'[,'<feld>']).subkey — Lookup nach Inhalt statt Position (z.B. DS18B20-Sensoren stabil über ihre Id ansprechen, unabhängig von Tasmota-Erkennungsreihenfolge)
+v1.10  30.06.2026 HSV-Mapper für Farblampen (ein HSV-Regler in der Visu): hsv_to_color('huePath','satPath','briPath'[,'statePath'][,briMax]) splittet Edomi-HSV '#HHSSVV' in eine /set-Nachricht mit Farbe + Helligkeit (V=0 + statePath -> state OFF); color_to_hsv(...) kombiniert den Status zurück zu '#HHSSVV' (hue/sat bzw. color.x/y-Fallback). Feldnamen + optionales state kommen als Parameter aus der Geräte-JSON -> generisch (z.B. auch bri/h/s); ohne Argumente Hue-Defaults (color.hue/color.saturation/brightness, briMax 254).
+                  Per-Channel sendByChange abschaltbar: JSON-Feld "sendByChange":false (Default true) wird beim Import als Marker @nosbc im note kodiert; LBS reicht bei diesen Channels JEDE empfangene Nachricht ans KO durch (z.B. IR-Fernbedienung, die mehrfach denselben Wert sendet). Keine DB-Schema-Änderung.
+		  Echo-Suppression für gemeinsames KO (koIDsub==koIDpub, z.B. ein HSV-Regler für Status+Steuerung): ein aus einem empfangenen Status geschriebener KO-Wert wird genau einmal NICHT zurückpubliziert -> kein Talk-back/Loop bei Fremdänderungen der Lampe. Greift nur bei gemeinsamem KO; getrennte KOs unverändert.
+		  Admin: Spalte "Letzter Wert" entfernt — der LBS schreibt lastValue/lastSeen seit v1.03 nicht mehr (Performance), die Spalte war dauerhaft leer. Spalten lastValue/lastSeen auch aus dem CREATE TABLE entfernt (betrifft nur Neu-Installs; Alt-Installs behalten sie harmlos, da keine Query sie beim Namen referenziert).
 */
 
 function LB_LBSID_debug($debugLevel, $thisTxtDbgLevel, $str) {
@@ -205,12 +209,16 @@ function exec_debug($thisTxtDbgLevel, $str) {
     }
 }
 
-function mqtt_writeGA($koID, $val, &$cache) {
-    if ($koID <= 0) return;
+// Liefert true, wenn tatsächlich ans KO geschrieben wurde (für Echo-Suppression).
+function mqtt_writeGA($koID, $val, &$cache, $sbc = true) {
+    if ($koID <= 0) return false;
     $key = (string)$koID;
-    if (isset($cache[$key]) && (string)$cache[$key] === (string)$val) return;
+    // sendByChange: bei aktivem SBC unveränderte Werte überspringen.
+    // SBC aus (@nosbc) -> immer schreiben (z.B. IR-Wiederholungen).
+    if ($sbc && isset($cache[$key]) && (string)$cache[$key] === (string)$val) return false;
     $cache[$key] = (string)$val;
     writeGA($koID, $val);
+    return true;
 }
 
 // ── DB: Channels laden ────────────────────────────────────────────────────────
@@ -236,7 +244,7 @@ $dynInputs = [];  // dynIdx => cid
 $res = mysqli_query($dbMqtt,
     "SELECT c.id, c.name, c.subscribeTopic, c.publishTopic,
             c.dataType, c.jsonPath, c.valueTemplate, c.commandTemplate,
-            c.valueMapIn, c.valueMapOut, c.direction, c.koIDsub, c.koIDpub
+            c.valueMapIn, c.valueMapOut, c.direction, c.koIDsub, c.koIDpub, c.note
      FROM edomiProject.mqttChannel c
      WHERE c.koIDsub > 0 OR c.koIDpub > 0
      ORDER BY c.id"
@@ -248,6 +256,8 @@ if ($res) {
         $row['valueMapOut'] = $row['valueMapOut'] ? json_decode($row['valueMapOut'], true) : null;
         $row['koIDsub']     = (int)$row['koIDsub'];
         $row['koIDpub']     = (int)$row['koIDpub'];
+        // sendByChange: aus @nosbc-Marker im note ableiten (Default an).
+        $row['sbc']         = (stripos((string)($row['note'] ?? ''), '@nosbc') === false);
         $channels[$cid] = $row;
 
         $dir = $row['direction'];
@@ -290,6 +300,7 @@ unset($dbMqtt);
 // ── Verbindungsschleife ───────────────────────────────────────────────────────
 
 $gaCache      = [];
+$echoSuppress = [];   // koID => Wert, der zuletzt aus einem Status geschrieben wurde (Echo-Suppression)
 $clientId     = 'edomi_mqtt_' . $lbsID . '_' . substr(md5(uniqid()), 0, 8);
 $stop         = false;
 $deviceTopics = array_keys($byTopic);
@@ -307,13 +318,17 @@ do {
 
         // Innere Loop ebenfalls im try — writePacket() kann bei Verbindungsabbruch werfen
         do {
-            $mqtt->loop(function($topic, $payload) use (&$gaCache, $byTopic, $channels) {
+            $mqtt->loop(function($topic, $payload) use (&$gaCache, &$echoSuppress, $byTopic, $channels) {
                 if (!isset($byTopic[$topic])) return;
                 foreach ($byTopic[$topic] as $cid) {
                     $ch  = $channels[$cid];
                     $val = mqtt_applyReceive($payload, $ch);
-                    exec_debug(2, "RX [$topic] '$payload' → KO " . $ch['koIDsub'] . " = '$val'");
-                    mqtt_writeGA($ch['koIDsub'], $val, $gaCache);
+                    exec_debug(2, "RX [$topic] '$payload' → KO " . $ch['koIDsub'] . " = '$val'" . ($ch['sbc'] ? '' : ' [nosbc]'));
+                    // Wenn wirklich geschrieben wurde, Wert für Echo-Suppression vormerken
+                    // (verhindert, dass der dadurch ausgelöste Publish dasselbe wieder zurücksendet).
+                    if (mqtt_writeGA($ch['koIDsub'], $val, $gaCache, $ch['sbc'])) {
+                        $echoSuppress[$ch['koIDsub']] = (string)$val;
+                    }
                 }
             }, 1.0);
 
@@ -330,6 +345,17 @@ do {
                     if (!(int)($qE[$dIdx]['refresh'] ?? 0)) continue;
                     $ch      = $channels[$cid];
                     $rawVal  = (string)($qE[$dIdx]['value'] ?? '');
+                    $koPub   = $ch['koIDpub'];
+                    // Echo-Suppression: kam diese KO-Änderung gerade aus einem empfangenen Status
+                    // (gemeinsames KO, koIDsub==koIDpub)? Dann NICHT zurückpublishen. Einmalig.
+                    if (isset($echoSuppress[$koPub]) &&
+                        ($echoSuppress[$koPub] === $rawVal ||
+                         (is_numeric($echoSuppress[$koPub]) && is_numeric($rawVal) &&
+                          (float)$echoSuppress[$koPub] === (float)$rawVal))) {
+                        unset($echoSuppress[$koPub]);
+                        exec_debug(2, "Echo unterdrückt: KO $koPub = '$rawVal' (aus Status)");
+                        continue;
+                    }
                     $payload = mqtt_applySend($rawVal, $ch);
                     exec_debug(1, "TX [" . $ch['publishTopic'] . "] = '$payload' (KO " . $ch['koIDpub'] . ")");
                     $mqtt->publish($ch['publishTopic'], $payload);

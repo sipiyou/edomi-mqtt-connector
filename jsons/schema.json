@@ -54,11 +54,11 @@
           },
           "valueTemplate": {
             "type": "string",
-            "description": "Jinja2-Template für Empfang (MQTT → KO). Verfügbare Variablen: value (Rohwert), value_json.feld (JSON-Feld). Filter: float, int, round, round(N), upper, lower, Arithmetik (+/-/*/÷). Beispiele: '{{ value | float / 10 | round(1) }}', '{{ value_json.temperature | round(2) }}', '{{ value | float * 0.001 | round(3) }}'."
+            "description": "Jinja2-Template für Empfang (MQTT → KO). Verfügbare Variablen: value (Rohwert), value_json.feld (JSON-Feld). Funktionen: value_json_byid('id'[,'feld']) (Lookup nach Inhalt), color_to_hsv('huePath','satPath','briPath'[,'statePath'][,briMax]) (Z2M-Farblampen-Status → Edomi-HSV '#HHSSVV', Feldnamen parametrierbar, xy-Fallback). Filter: float, int, round, round(N), upper, lower, Arithmetik (+/-/*/÷). Beispiele: '{{ value | float / 10 | round(1) }}', '{{ value_json.temperature | round(2) }}', '{{ color_to_hsv('color.hue','color.saturation','brightness','state') }}'."
           },
           "commandTemplate": {
             "type": "string",
-            "description": "Jinja2-Template für Senden (KO → MQTT). {{ value }} wird durch den KO-Wert ersetzt. Beispiele: '{\"brightness\": {{ value | int }}}', 'ON' (fest), '{{ value }}'."
+            "description": "Jinja2-Template für Senden (KO → MQTT). {{ value }} wird durch den KO-Wert ersetzt. Funktion: hsv_to_color('huePath','satPath','briPath'[,'statePath'][,briMax]) (Edomi-HSV '#HHSSVV' → EINE /set-Nachricht mit Farbe + Helligkeit; Feldnamen parametrierbar, statePath optional → V=0 sendet state OFF). Beispiele: '{\"brightness\": {{ value | int }}}', '{{ hsv_to_color('color.hue','color.saturation','brightness','state') }}', '{{ value }}'."
           },
           "valueMapIn": {
             "type": ["object", "null"],
@@ -77,6 +77,10 @@
           "note": {
             "type": "string",
             "description": "Freitext-Hinweis, wird im Admin angezeigt."
+          },
+          "sendByChange": {
+            "type": "boolean",
+            "description": "Default true. Bei true wird ein empfangener Wert nur ans KO geschrieben, wenn er sich geändert hat (sendByChange). Auf false setzen, um JEDE empfangene Nachricht durchzureichen (z.B. IR-Fernbedienung/Taster, die mehrfach denselben Wert sendet). Wird intern als Marker '@nosbc' im note-Feld gespeichert (keine eigene DB-Spalte)."
           }
         }
       }

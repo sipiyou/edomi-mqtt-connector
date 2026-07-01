@@ -126,7 +126,12 @@ function importJson($mysqli, $json, $targetDevID = 0) {
         $valTpl   = mysqli_real_escape_string($mysqli, $ch['valueTemplate']   ?? '');
         $cmdTpl   = mysqli_real_escape_string($mysqli, $ch['commandTemplate'] ?? '');
         $dir      = mysqli_real_escape_string($mysqli, $ch['direction']       ?? 'both');
-        $note     = mysqli_real_escape_string($mysqli, $ch['note']             ?? '');
+        // sendByChange (Default true) wird als @nosbc-Marker im note kodiert (keine eigene Spalte).
+        $noteRaw = (string)($ch['note'] ?? '');
+        $noteRaw = trim(preg_replace('/\s*@nosbc\b/i', '', $noteRaw));   // bestehenden Marker entfernen (idempotent)
+        $sbcOn   = !array_key_exists('sendByChange', $ch) || $ch['sendByChange'] !== false;
+        if (!$sbcOn) $noteRaw = ($noteRaw === '' ? '@nosbc' : $noteRaw . ' @nosbc');
+        $note     = mysqli_real_escape_string($mysqli, $noteRaw);
         $mapIn    = isset($ch['valueMapIn'])  ? "'".mysqli_real_escape_string($mysqli,json_encode($ch['valueMapIn']))."'"  : 'NULL';
         $mapOut   = isset($ch['valueMapOut']) ? "'".mysqli_real_escape_string($mysqli,json_encode($ch['valueMapOut']))."'" : 'NULL';
 
@@ -753,8 +758,6 @@ td { padding: 4px 6px; vertical-align: middle; border-bottom: 1px solid #e8e8e8;
 .ind-sub { color: #0050a0; font-weight: bold; font-size: 11px; width: 22px; text-align: center; }
 .ind-pub { color: #800080; font-weight: bold; font-size: 11px; width: 22px; text-align: center; }
 .topic-mono { font-family: monospace; color: #404040; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
-.lv-cell { font-size: 11px; color: #008000; white-space: nowrap; }
-.lv-ts   { color: #a0a0a0; font-size: 10px; }
 .tr-detail td { background: #f8f8f4 !important; font-family: monospace; color: #505060; }
 .test-input { width: 80px; padding: 1px 3px; border: 1px solid #b0b0b0; border-radius: 2px; }
 .test-result { font-size: 10px; color: #555; margin-left: 4px; }
@@ -1369,7 +1372,7 @@ $chList  = getChannels($mysqli, $devID);
 <div id="testToast"></div>
 <table>
 <thead><tr>
-  <th>Name</th><th style="min-width:90px">Richtung</th><th>Typ</th><th>Letzter Wert</th><th></th>
+  <th>Name</th><th style="min-width:90px">Richtung</th><th>Typ</th><th></th>
 </tr></thead>
 <tbody>
 <?php foreach ($chList as $ch): ?>
@@ -1382,15 +1385,12 @@ $koIDpub  = (int)($ch['koIDpub'] ?? 0);
 $hasSub   = ($dir === 'both' || $dir === 'subscribe') && $ch['subscribeTopic'] !== '';
 $hasPub   = ($dir === 'both' || $dir === 'publish')   && $ch['publishTopic']   !== '';
 $hasDetail = $ch['valueTemplate'] || $ch['commandTemplate'] || $ch['valueMapIn'] || $ch['unit'];
-$lv = $ch['lastValue'] ?? '';
-$ls = $ch['lastSeen']  ?? '';
 ?>
 <!-- Hauptzeile -->
 <tr>
   <td><b><?= h($ch['name']) ?></b></td>
   <td><?= $dirLabel ?></td>
   <td><?= h($ch['dataType']) ?><?= $ch['unit'] ? ' <span style="color:#808080">['.h($ch['unit']).']</span>' : '' ?></td>
-  <td class="lv-cell"><?= $lv !== '' ? h($lv) . ($ls ? ' <span class="lv-ts">'.h(substr($ls,0,16)).'</span>' : '') : '<span style="color:#c0c0c0">—</span>' ?></td>
   <td>
     <span class="btn-map"
           data-chid="<?= $cid ?>"
@@ -1404,7 +1404,7 @@ $ls = $ch['lastSeen']  ?? '';
 </tr>
 <?php if ($ch['note'] !== ''): ?>
 <tr class="tr-detail">
-  <td colspan="5" style="font-size:10px;color:#808080;font-style:italic;padding-left:8px"><?= h($ch['note']) ?></td>
+  <td colspan="4" style="font-size:10px;color:#808080;font-style:italic;padding-left:8px"><?= h($ch['note']) ?></td>
 </tr>
 <?php endif ?>
 <?php if ($hasSub): ?>
@@ -1419,7 +1419,6 @@ $ls = $ch['lastSeen']  ?? '';
       </span>
     </div>
   </td>
-  <td></td>
 </tr>
 <?php endif; ?>
 <?php if ($hasPub): ?>
@@ -1438,14 +1437,13 @@ $ls = $ch['lastSeen']  ?? '';
     <input id="tv_<?= $cid ?>" class="test-input" type="text" placeholder="Testwert">
     <span class="btn-test" onclick="doTestPublish(<?= $cid ?>, 'tv_<?= $cid ?>')">Senden</span>
   </td>
-  <td></td>
 </tr>
 <?php endif; ?>
 <?php if ($hasDetail): ?>
 <!-- Template/Mapping Detail -->
 <tr class="tr-detail">
   <td></td>
-  <td colspan="3" style="font-size:10px">
+  <td colspan="2" style="font-size:10px">
     <?php if ($ch['valueTemplate']):   ?>rxTpl: <b><?= h($ch['valueTemplate'])   ?></b>&nbsp; <?php endif ?>
     <?php if ($ch['commandTemplate']): ?>txTpl: <b><?= h($ch['commandTemplate']) ?></b>&nbsp; <?php endif ?>
     <?php if ($ch['valueMapIn']): $mi = json_decode($ch['valueMapIn'],true)??[]; ?>mapIn: <b><?= count($mi) ?> Eintr.</b> <span style="color:#808080">(<?= implode(', ', array_map(function($k,$v){return h($k).' → '.h($v);}, array_keys($mi), $mi)) ?>)</span>&nbsp;<?php endif ?>
@@ -1456,7 +1454,7 @@ $ls = $ch['lastSeen']  ?? '';
 <?php endif; ?>
 <?php endforeach; ?>
 <?php if (empty($chList)): ?>
-<tr><td colspan="5" style="color:#888;font-style:italic;">Keine Channels — JSON für dieses Gerät importieren.</td></tr>
+<tr><td colspan="4" style="color:#888;font-style:italic;">Keine Channels — JSON für dieses Gerät importieren.</td></tr>
 <?php endif; ?>
 </tbody>
 </table>

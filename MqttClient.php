@@ -368,9 +368,152 @@ class MqttClient
 // Mini Jinja2: {{ value }}, {{ value | float / 10 | round(2) }},
 //              {{ value_json.key }}, {{ value_json['key'] }}
 // Filters: float, int, round, round(N), lower, upper, arithmetic (+,-,*,/)
+// Funktionen: value_json_byid('id'[,'field']), hsv_to_color(value), color_to_hsv()
+
+// HSV-String '#HHSSVV' (auch 'HHSSVV' oder 3-stellig '#HSV') -> [H,S,V] je 0..255
+function mqtt_hsvParse($s) {
+    $s = str_replace('#', '', trim((string)$s));
+    if (strlen($s) === 3) {
+        $h = hexdec($s[0] . $s[0]);
+        $a = hexdec($s[1] . $s[1]);
+        $v = hexdec($s[2] . $s[2]);
+    } else {
+        $h = hexdec(substr($s, 0, 2));
+        $a = hexdec(substr($s, 2, 2));
+        $v = hexdec(substr($s, 4, 2));
+    }
+    return array($h & 0xFF, $a & 0xFF, $v & 0xFF);
+}
+
+// CIE-xy -> [hue 0..360, saturation 0..100] (Fallback, wenn Z2M nur color.x/y meldet)
+function mqtt_xyToHueSat($x, $y) {
+    $x = (float)$x; $y = (float)$y;
+    if ($y <= 0.0) return array(0.0, 0.0);
+    $Y = 1.0;
+    $X = ($Y / $y) * $x;
+    $Z = ($Y / $y) * (1.0 - $x - $y);
+    $r =  $X * 1.656492 - $Y * 0.354851 - $Z * 0.255038;
+    $g = -$X * 0.707196 + $Y * 1.655397 + $Z * 0.036152;
+    $b =  $X * 0.051713 - $Y * 0.121364 + $Z * 1.011530;
+    foreach (array('r','g','b') as $c) {
+        $$c = ($$c <= 0.0031308) ? 12.92 * $$c : 1.055 * pow(max(0.0, $$c), 1.0 / 2.4) - 0.055;
+        if ($$c < 0.0) $$c = 0.0;
+    }
+    $mx = max($r, $g, $b);
+    if ($mx > 1.0) { $r /= $mx; $g /= $mx; $b /= $mx; }
+    $max = max($r, $g, $b); $min = min($r, $g, $b); $d = $max - $min;
+    $h = 0.0;
+    if ($d > 0.0) {
+        if ($max == $r)      $h = fmod((($g - $b) / $d), 6.0);
+        elseif ($max == $g)  $h = (($b - $r) / $d) + 2.0;
+        else                 $h = (($r - $g) / $d) + 4.0;
+        $h *= 60.0;
+        if ($h < 0.0) $h += 360.0;
+    }
+    $s = ($max > 0.0) ? ($d / $max) * 100.0 : 0.0;
+    return array($h, $s);
+}
+
+// Funktions-Argumente aus "'a','b',254" lesen: liefert Liste der Strings/Zahlen.
+// Bare-Wörter (z.B. das Schlüsselwort 'value') werden ignoriert -> dann gelten Defaults.
+// Argumente eines HSV-Funktionsaufrufs lesen: liefert array($paths, $briMax).
+// $paths = alle '…'-String-Argumente in Reihenfolge (Pfade hue,sat,bri,state).
+// $briMax = erste freie (unquoted) Zahl, Default 254. Bare-Wörter (z.B. value) -> ignoriert.
+function mqtt_hsvArgs($argStr) {
+    $argStr = (string)$argStr;
+    preg_match_all("/'([^']*)'/", $argStr, $sm);
+    $paths  = $sm[1];
+    $rest   = preg_replace("/'[^']*'/", '', $argStr);
+    $briMax = preg_match('/([0-9]+(?:\.[0-9]+)?)/', $rest, $nm) ? (float)$nm[1] : 254.0;
+    if ($briMax <= 0) $briMax = 254.0;
+    return array($paths, $briMax);
+}
+
+// Wert in verschachteltes Array nach Punkt-Pfad setzen (z.B. 'color.hue').
+function mqtt_setPath(array &$arr, $path, $value) {
+    $keys = explode('.', (string)$path);
+    $ref  =& $arr;
+    $n    = count($keys);
+    foreach ($keys as $i => $k) {
+        if ($i === $n - 1) { $ref[$k] = $value; }
+        else {
+            if (!isset($ref[$k]) || !is_array($ref[$k])) $ref[$k] = array();
+            $ref =& $ref[$k];
+        }
+    }
+}
+
+// Wert aus verschachteltem Array nach Punkt-Pfad lesen (null wenn nicht vorhanden).
+function mqtt_getPath($arr, $path) {
+    foreach (explode('.', (string)$path) as $k) {
+        if (is_array($arr) && array_key_exists($k, $arr)) $arr = $arr[$k];
+        else return null;
+    }
+    return $arr;
+}
 
 function mqtt_evalExpr(string $expr, string $raw): string {
     $decoded = null;
+
+    // HSV-Mapper Senden: '#HHSSVV' -> Z2M-/set-Payload (Farbe + Helligkeit getrennt).
+    // Feldnamen kommen als Pfad-Argumente aus der Geräte-JSON -> LBS bleibt generisch.
+    // Signatur: hsv_to_color('huePath','satPath','briPath'[,'statePath'][,briMax]).
+    // statePath gesetzt: state=ON / bei V=0 nur { statePath: "OFF" }. Ohne statePath: kein state.
+    // Liefert komplettes JSON -> direkt zurück (kein Filter-Chaining).
+    if (preg_match('/^hsv_to_color\s*\((.*)\)\s*$/s', $expr, $m)) {
+        list($paths, $briMax) = mqtt_hsvArgs($m[1]);
+        $huePath   = (isset($paths[0]) && $paths[0] !== '') ? $paths[0] : 'color.hue';
+        $satPath   = (isset($paths[1]) && $paths[1] !== '') ? $paths[1] : 'color.saturation';
+        $briPath   = (isset($paths[2]) && $paths[2] !== '') ? $paths[2] : 'brightness';
+        $statePath = isset($paths[3]) ? $paths[3] : '';
+        list($H, $S, $V) = mqtt_hsvParse($raw);
+        if ($statePath !== '' && $V <= 0) {
+            $out = array();
+            mqtt_setPath($out, $statePath, 'OFF');
+            return json_encode($out);
+        }
+        $out = array();
+        if ($statePath !== '') mqtt_setPath($out, $statePath, 'ON');
+        mqtt_setPath($out, $briPath, (int)round($V * $briMax / 255));
+        mqtt_setPath($out, $huePath, (int)round($H * 360 / 255));
+        mqtt_setPath($out, $satPath, (int)round($S * 100 / 255));
+        return json_encode($out);
+    }
+
+    // HSV-Mapper Rückkanal: Z2M-Status-JSON -> '#HHSSVV'.
+    // Signatur: color_to_hsv('huePath','satPath','briPath'[,'statePath'][,briMax]).
+    // hue/sat über Pfade (sonst color.x/y -> xy->HS). statePath gesetzt & ==OFF -> V=0.
+    if (preg_match('/^color_to_hsv\s*\((.*)\)\s*$/s', $expr, $m)) {
+        list($paths, $briMax) = mqtt_hsvArgs($m[1]);
+        $huePath   = (isset($paths[0]) && $paths[0] !== '') ? $paths[0] : 'color.hue';
+        $satPath   = (isset($paths[1]) && $paths[1] !== '') ? $paths[1] : 'color.saturation';
+        $briPath   = (isset($paths[2]) && $paths[2] !== '') ? $paths[2] : 'brightness';
+        $statePath = isset($paths[3]) ? $paths[3] : '';
+        $d = json_decode($raw, true);
+        $hueDeg = 0.0; $satPct = 0.0; $bri = 0.0;
+        if (is_array($d)) {
+            $hv = mqtt_getPath($d, $huePath);
+            $sv = mqtt_getPath($d, $satPath);
+            if ($hv !== null && $sv !== null) {
+                $hueDeg = (float)$hv;
+                $satPct = (float)$sv;
+            } else {
+                $x = mqtt_getPath($d, 'color.x');
+                $y = mqtt_getPath($d, 'color.y');
+                if ($x !== null && $y !== null) list($hueDeg, $satPct) = mqtt_xyToHueSat($x, $y);
+            }
+            $bv = mqtt_getPath($d, $briPath);
+            if ($bv !== null) $bri = (float)$bv;
+            if ($statePath !== '') {
+                $st = mqtt_getPath($d, $statePath);
+                if ($st !== null && strtoupper((string)$st) === 'OFF') $bri = 0.0;
+            }
+        }
+        $H  = max(0, min(255, (int)round($hueDeg * 255 / 360)));
+        $S  = max(0, min(255, (int)round($satPct * 255 / 100)));
+        $Vb = max(0, min(255, (int)round($bri    * 255 / $briMax)));
+        return sprintf('#%02X%02X%02X', $H, $S, $Vb);
+    }
 
     if (preg_match("/^value_json_byid\(\s*'([^']*)'\s*(?:,\s*'([^']*)'\s*)?\)(.*)\$/s", $expr, $m)) {
         // Lookup nach Inhalt statt Position: durchsucht die Werte des JSON-Objekts
@@ -539,8 +682,6 @@ function mqtt_initDB($db) {
             koIDsub         BIGINT UNSIGNED NOT NULL DEFAULT 0,
             koIDpub         BIGINT UNSIGNED NOT NULL DEFAULT 0,
             note            VARCHAR(512)    NOT NULL DEFAULT '',
-            lastValue       VARCHAR(255)    NOT NULL DEFAULT '',
-            lastSeen        DATETIME,
             PRIMARY KEY (id),
             KEY idx_device (deviceID)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"

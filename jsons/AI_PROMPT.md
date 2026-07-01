@@ -40,14 +40,47 @@ Optionales Top-Level-Feld: "_note" (String, Hinweis für den Nutzer)
                       nach einem Untereintrag, dessen Feld (Default 'Id') == <wert> ist, und liefert
                       diesen Untereintrag. Stabil bei Sensoren, deren Positions-Key (z.B. DS18B20-1)
                       sich ändern kann. Danach .subkey + Filter wie gewohnt.
+                      color_to_hsv('huePath','satPath','briPath'[,'statePath'][,briMax]) :
+                      kombiniert einen Z2M-Farblampen-Status zu einem Edomi-HSV-String '#HHSSVV'.
+                      Liest hue/sat über die Pfade (sonst color.x/y-Fallback) + brightness. Wenn
+                      statePath angegeben und ==OFF -> V=00. Ohne Argumente: Hue-Defaults
+                      (color.hue/color.saturation/brightness, briMax 254). Beispiel:
+                      "{{ color_to_hsv('color.hue','color.saturation','brightness','state') }}".
 - "commandTemplate" : Jinja2-Template für Senden. {{ value }} = KO-Wert.
                       Beispiel: "{\"brightness\": {{ value | int }}}"
+                      hsv_to_color('huePath','satPath','briPath'[,'statePath'][,briMax]) : nimmt
+                      einen Edomi-HSV-String '#HHSSVV' (H/S/V je 0..255) und erzeugt EINE Z2M-/set-
+                      Nachricht mit Farbe + Helligkeit getrennt. Feldnamen kommen als Pfad-Parameter
+                      -> generisch für beliebige Lampen (z.B. 'color.h','color.s','bri'). statePath
+                      gesetzt: state=ON, bei V=0 nur {statePath:"OFF"}; ohne statePath kein state-Feld.
+                      briMax (Default 254) für 0..254- vs 0..100-Helligkeit. So deckt EIN HSV-Regler
+                      in der Visu Farbe UND Helligkeit ab. Beispiel:
+                      "{{ hsv_to_color('color.hue','color.saturation','brightness','state') }}".
 - "valueMapIn"      : Lookup-Tabelle MQTT→KO. Alle Werte als Strings.
                       Beispiel: {"ON": "1", "OFF": "0"}
 - "valueMapOut"     : Lookup-Tabelle KO→MQTT. Alle Schlüssel als Strings.
                       Beispiel: {"1": "ON", "0": "OFF"}
 - "unit"            : Einheit als String, nur zur Dokumentation ("°C", "W", "kWh", ...)
 - "note"            : Freitext-Hinweis, wird im Admin angezeigt
+- "sendByChange"    : true/false (Default true). true = Wert nur bei Änderung ans KO schreiben.
+                      false = JEDE empfangene Nachricht durchreichen (z.B. IR-Fernbedienung/Taster,
+                      die mehrfach denselben Wert sendet). Wird intern als @nosbc im note kodiert.
+
+### Echo-Suppression & gemeinsames Lese/Schreib-KO (für Farblampen/HSV etc.)
+Dasselbe KO darf als RD (Status, koIDsub) UND WR (Senden, koIDpub) zugewiesen werden — z.B. EIN
+HSV-Regler, der die Lampe steuert und ihren Ist-Zustand anzeigt. Der LBS hat dafür eine
+Echo-Suppression: ein Wert, der gerade aus einem empfangenen Status ins KO geschrieben wurde, wird
+genau EINMAL nicht zurückpubliziert → kein Feedback-Loop/Talk-back bei Fremdänderungen der Lampe
+(App/Szene/Sensor). Die Echo-Suppression hängt am tatsächlichen KO-Write, NICHT am SBC-Flag, gilt
+also für sendByChange true und false.
+
+WICHTIGER RANDFALL: Die Kombination **sendByChange:false UND gemeinsames Lese/Schreib-KO**
+(koIDsub==koIDpub) vermeiden. Bei sbc:false wird auch bei unverändertem Wert geschrieben; löst ein
+solcher Write keinen Publish-Eingang aus, kann ein „liegengebliebener" Echo-Eintrag einen späteren,
+echten Publish desselben Werts einmal fälschlich unterdrücken. Faustregeln:
+- sendByChange:false NUR für reine Empfangs-Channels (subscribe, KEIN publishTopic/koIDpub),
+  z.B. IR-Fernbedienung/Taster. Dort gibt es keinen Publish-Pfad → unkritisch.
+- Gemeinsames Lese/Schreib-KO (HSV-Regler etc.) IMMER mit sendByChange (Default true) lassen.
 
 ### KRITISCHE REGELN — diese Fehler machen AIs häufig:
 1. jsonPath hat KEINEN $-Prefix. "temperature" ist richtig, "$.temperature" ist FALSCH.
@@ -58,6 +91,7 @@ Optionales Top-Level-Feld: "_note" (String, Hinweis für den Nutzer)
 6. dataType muss exakt "string", "int", "float" oder "bool" sein — kein "number", "boolean", "text".
 7. Kein "$schema"-Feld im Output.
 8. valueMapIn/valueMapOut werden nur verwendet wenn der Payload ein einfacher String ohne Transformation ist — nicht zusammen mit valueTemplate (es sei denn, valueTemplate gibt einen Wert aus der Map zurück).
+9. sendByChange:false NICHT mit einem gemeinsamen Lese/Schreib-KO (RD==WR) kombinieren — nur für reine subscribe-Channels (siehe Abschnitt „Echo-Suppression").
 
 ### Verarbeitungsreihenfolge beim Empfangen:
 MQTT-Payload → valueTemplate → valueMapIn → dataType-Cast → KO

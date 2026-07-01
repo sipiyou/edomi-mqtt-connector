@@ -1,0 +1,142 @@
+{
+  "device": "Hue Econic Lamp",
+  "_note": "Philips Hue Outdoor Econic wall lantern (Modell 1743930P7), via Zigbee2MQTT. Topic = friendly_name 'Lamp' (mit Leerzeichen — exakt so übernehmen; bei Umbenennung in Z2M anpassen). Lesen aus zigbee2mqtt/Lamp (Status-JSON), Schreiben nach .../set mit {\"<property>\": <wert>}. brightness 0..254 (nicht 0..100; für %-Steuerung gäbe es brightness_percent). color_temp in Mired 153..500 (153=kalt/6500K .. 500=warm/2000K). Farbe über hue 0..360 + saturation 0..100.",
+  "channels": [
+    {
+      "name": "Status Ein/Aus",
+      "note": "state ON/OFF -> 1/0",
+      "subscribeTopic": "zigbee2mqtt/Lamp",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.state }}",
+      "valueMapIn": {"ON": "1", "OFF": "0"},
+      "direction": "subscribe"
+    },
+    {
+      "name": "Helligkeit Status",
+      "note": "brightness 0..254",
+      "subscribeTopic": "zigbee2mqtt/Lamp",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.brightness }}",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Farbtemperatur Status",
+      "note": "color_temp in Mired (153..500)",
+      "subscribeTopic": "zigbee2mqtt/Lamp",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.color_temp }}",
+      "unit": "mired",
+      "direction": "subscribe"
+    },
+    {
+      "name": "Linkqualität",
+      "subscribeTopic": "zigbee2mqtt/Lamp",
+      "dataType": "int",
+      "valueTemplate": "{{ value_json.linkquality }}",
+      "unit": "lqi",
+      "direction": "subscribe"
+    },
+
+    {
+      "name": "Schalten",
+      "note": "KO 0=AUS, 1=EIN",
+      "publishTopic": "zigbee2mqtt/Lamp/set",
+      "dataType": "int",
+      "valueMapOut": {"0": "OFF", "1": "ON"},
+      "commandTemplate": "{\"state\": \"{{ value }}\"}",
+      "direction": "publish"
+    },
+    {
+      "name": "Helligkeit setzen",
+      "note": "KO 0..254 (Z2M-nativ). Bei 0 geht die Leuchte aus.",
+      "publishTopic": "zigbee2mqtt/Lamp/set",
+      "dataType": "int",
+      "commandTemplate": "{\"brightness\": {{ value }}}",
+      "direction": "publish"
+    },
+    {
+      "name": "Farbtemperatur setzen",
+      "note": "KO 153..500 Mired (153=kalt .. 500=warm)",
+      "publishTopic": "zigbee2mqtt/Lamp/set",
+      "dataType": "int",
+      "commandTemplate": "{\"color_temp\": {{ value }}}",
+      "unit": "mired",
+      "direction": "publish"
+    },
+    {
+      "name": "Farbton setzen",
+      "note": "Hue 0..360",
+      "publishTopic": "zigbee2mqtt/Lamp/set",
+      "dataType": "int",
+      "commandTemplate": "{\"color\": {\"hue\": {{ value }}}}",
+      "direction": "publish"
+    },
+    {
+      "name": "Sättigung setzen",
+      "note": "Saturation 0..100",
+      "publishTopic": "zigbee2mqtt/Lamp/set",
+      "dataType": "int",
+      "commandTemplate": "{\"color\": {\"saturation\": {{ value }}}}",
+      "direction": "publish"
+    },
+    {
+      "name": "Einschaltverhalten",
+      "note": "KO 0=off, 1=on, 2=toggle, 3=previous",
+      "publishTopic": "zigbee2mqtt/Lamp/set",
+      "dataType": "int",
+      "valueMapOut": {"0": "off", "1": "on", "2": "toggle", "3": "previous"},
+      "commandTemplate": "{\"power_on_behavior\": \"{{ value }}\"}",
+      "direction": "publish"
+    },
+    {
+      "name": "Effekt setzen",
+      "note": "String-KO: blink, breathe, candle, fireplace, colorloop, sunset, sunrise, sparkle, glisten, cosmos, sunbeam, enchant, none/stop_effect zum Beenden.",
+      "publishTopic": "zigbee2mqtt/Lamp/set",
+      "dataType": "string",
+      "commandTemplate": "{\"effect\": \"{{ value }}\"}",
+      "direction": "publish"
+    },
+    {
+      "name": "Effekt-Geschwindigkeit setzen",
+      "note": "effect_speed 0.0..1.0 (Float). Wirkt auf den laufenden Effekt.",
+      "publishTopic": "zigbee2mqtt/Lamp/set",
+      "dataType": "float",
+      "commandTemplate": "{\"effect_speed\": {{ value }}}",
+      "direction": "publish"
+    },
+    {
+      "name": "Effekt-Farbe setzen",
+      "note": "effect_color als Hex-String, z.B. #FF8800 (oder Farbname). Setzt die Farbe für den Effekt.",
+      "publishTopic": "zigbee2mqtt/Lamp/set",
+      "dataType": "string",
+      "commandTemplate": "{\"effect_color\": \"{{ value }}\"}",
+      "direction": "publish"
+    },
+    {
+      "name": "Farbtemperatur Einschaltwert",
+      "note": "color_temp_startup 153..500 Mired: Farbtemperatur beim nächsten Einschalten.",
+      "publishTopic": "zigbee2mqtt/Lamp/set",
+      "dataType": "int",
+      "commandTemplate": "{\"color_temp_startup\": {{ value }}}",
+      "unit": "mired",
+      "direction": "publish"
+    },
+
+    {
+      "name": "HSV setzen",
+      "note": "Ein KO vom Edomi-HSV-Regler im Format #HHSSVV. Splittet H/S -> color.hue/saturation und V -> brightness in EINER /set-Nachricht. statePath 'state' -> V=0 schaltet die Lampe aus. Feldnamen sind Parameter (für andere Lampen z.B. 'color.h','color.s','bri').",
+      "publishTopic": "zigbee2mqtt/Lamp/set",
+      "dataType": "string",
+      "commandTemplate": "{{ hsv_to_color('color.hue','color.saturation','brightness','state') }}",
+      "direction": "publish"
+    },
+    {
+      "name": "HSV Status",
+      "note": "Kombiniert color.hue/saturation (bzw. color.x/y-Fallback) + brightness aus dem Z2M-Status zurück zu #HHSSVV für den HSV-Regler. statePath 'state': OFF -> V=00.",
+      "subscribeTopic": "zigbee2mqtt/Lamp",
+      "dataType": "string",
+      "valueTemplate": "{{ color_to_hsv('color.hue','color.saturation','brightness','state') }}",
+      "direction": "subscribe"
+    }
+  ]
+}
